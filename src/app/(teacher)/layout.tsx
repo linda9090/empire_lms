@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/get-session";
+import ShellLayout from "@/components/shared/ShellLayout";
+
+const NAV_ITEMS = [
+  { label: "Dashboard", href: "/teacher/dashboard" },
+  { label: "My Courses", href: "/teacher/courses" },
+];
 
 export default async function TeacherLayout({
   children,
@@ -16,5 +22,13 @@ export default async function TeacherLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return (
+    <ShellLayout
+      role="Teacher"
+      userName={session.user.name}
+      navItems={NAV_ITEMS}
+    >
+      {children}
+    </ShellLayout>
+  );
 }

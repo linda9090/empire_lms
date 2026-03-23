@@ -3,6 +3,8 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { db } from "@/lib/db";
 
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   database: prismaAdapter(db, {
     provider: "postgresql",
   }),
@@ -17,7 +19,7 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         defaultValue: "STUDENT",
-        input: false,
+        input: true,
       },
       organizationId: {
         type: "string",

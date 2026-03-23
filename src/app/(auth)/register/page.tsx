@@ -29,6 +29,7 @@ export default function RegisterPage() {
       name,
       email,
       password,
+      role,
       callbackURL: "/dashboard",
     });
 

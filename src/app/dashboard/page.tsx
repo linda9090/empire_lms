@@ -8,18 +8,18 @@ export default async function DashboardRedirectPage() {
     redirect("/login");
   }
 
-  const role = (session.user as Record<string, unknown>).role as string;
+  const role = session.user.role as string;
 
   switch (role) {
     case "TEACHER":
-      redirect("/(teacher)/dashboard");
+      redirect("/teacher/dashboard");
     case "STUDENT":
-      redirect("/(student)/dashboard");
+      redirect("/student/dashboard");
     case "GUARDIAN":
-      redirect("/(guardian)/dashboard");
+      redirect("/guardian/dashboard");
     case "ADMIN":
-      redirect("/(admin)/dashboard");
+      redirect("/admin/dashboard");
     default:
-      redirect("/(student)/dashboard");
+      redirect("/student/dashboard");
   }
 }
