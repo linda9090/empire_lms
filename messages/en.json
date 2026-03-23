@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Empire LMS",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit"
+  },
+  "auth": {
+    "login": "Log In",
+    "register": "Sign Up",
+    "logout": "Log Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "name": "Full Name",
+    "role": "Role",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "roles": {
+      "teacher": "Teacher",
+      "student": "Student",
+      "guardian": "Guardian",
+      "admin": "Administrator"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back, {name}",
+    "courses": "My Courses",
+    "progress": "Progress",
+    "recent": "Recent Activity"
+  },
+  "courses": {
+    "title": "Courses",
+    "create": "Create Course",
+    "edit": "Edit Course",
+    "publish": "Publish",
+    "unpublish": "Unpublish",
+    "enroll": "Enroll",
+    "price": "Price",
+    "free": "Free",
+    "description": "Description",
+    "activities": "Activities"
+  },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "courses": "Courses",
+    "settings": "Settings",
+    "profile": "Profile"
+  }
+}

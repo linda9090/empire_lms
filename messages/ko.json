@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Empire LMS",
+    "loading": "로딩 중...",
+    "error": "오류가 발생했습니다",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "수정",
+    "create": "생성",
+    "search": "검색",
+    "back": "뒤로",
+    "next": "다음",
+    "submit": "제출"
+  },
+  "auth": {
+    "login": "로그인",
+    "register": "회원가입",
+    "logout": "로그아웃",
+    "email": "이메일",
+    "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "name": "이름",
+    "role": "역할",
+    "forgotPassword": "비밀번호를 잊으셨나요?",
+    "noAccount": "계정이 없으신가요?",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "roles": {
+      "teacher": "교사",
+      "student": "학생",
+      "guardian": "보호자",
+      "admin": "관리자"
+    }
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "welcome": "{name}님, 환영합니다",
+    "courses": "내 수업",
+    "progress": "진도",
+    "recent": "최근 활동"
+  },
+  "courses": {
+    "title": "수업",
+    "create": "수업 만들기",
+    "edit": "수업 수정",
+    "publish": "게시",
+    "unpublish": "게시 취소",
+    "enroll": "수강 신청",
+    "price": "가격",
+    "free": "무료",
+    "description": "설명",
+    "activities": "활동"
+  },
+  "navigation": {
+    "home": "홈",
+    "dashboard": "대시보드",
+    "courses": "수업",
+    "settings": "설정",
+    "profile": "프로필"
+  }
+}

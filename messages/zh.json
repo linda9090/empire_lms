@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Empire LMS",
+    "loading": "加载中...",
+    "error": "发生错误",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "search": "搜索",
+    "back": "返回",
+    "next": "下一步",
+    "submit": "提交"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "email": "电子邮件",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "name": "姓名",
+    "role": "角色",
+    "forgotPassword": "忘记密码？",
+    "noAccount": "没有账户？",
+    "hasAccount": "已有账户？",
+    "roles": {
+      "teacher": "教师",
+      "student": "学生",
+      "guardian": "监护人",
+      "admin": "管理员"
+    }
+  },
+  "dashboard": {
+    "title": "仪表板",
+    "welcome": "欢迎回来，{name}",
+    "courses": "我的课程",
+    "progress": "进度",
+    "recent": "最近活动"
+  },
+  "courses": {
+    "title": "课程",
+    "create": "创建课程",
+    "edit": "编辑课程",
+    "publish": "发布",
+    "unpublish": "取消发布",
+    "enroll": "报名",
+    "price": "价格",
+    "free": "免费",
+    "description": "描述",
+    "activities": "活动"
+  },
+  "navigation": {
+    "home": "首页",
+    "dashboard": "仪表板",
+    "courses": "课程",
+    "settings": "设置",
+    "profile": "个人资料"
+  }
+}

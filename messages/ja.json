@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Empire LMS",
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "create": "作成",
+    "search": "検索",
+    "back": "戻る",
+    "next": "次へ",
+    "submit": "送信"
+  },
+  "auth": {
+    "login": "ログイン",
+    "register": "新規登録",
+    "logout": "ログアウト",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirmPassword": "パスワード確認",
+    "name": "氏名",
+    "role": "役割",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "roles": {
+      "teacher": "教師",
+      "student": "生徒",
+      "guardian": "保護者",
+      "admin": "管理者"
+    }
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "welcome": "{name}さん、おかえりなさい",
+    "courses": "マイコース",
+    "progress": "進捗",
+    "recent": "最近のアクティビティ"
+  },
+  "courses": {
+    "title": "コース",
+    "create": "コース作成",
+    "edit": "コース編集",
+    "publish": "公開",
+    "unpublish": "非公開",
+    "enroll": "受講登録",
+    "price": "価格",
+    "free": "無料",
+    "description": "説明",
+    "activities": "アクティビティ"
+  },
+  "navigation": {
+    "home": "ホーム",
+    "dashboard": "ダッシュボード",
+    "courses": "コース",
+    "settings": "設定",
+    "profile": "プロフィール"
+  }
+}
