@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  TEACHER
+  STUDENT
+  GUARDIAN
+  ADMIN
+}
+
+enum ActivityType {
+  VIDEO
+  QUIZ
+  TEXT
+  FILE
+  DISCUSSION
+  PDF
+  HTML
+  LTI
+}
+
+enum XApiVerb {
+  started
+  completed
+  scored
+  watched
+  attempted
+}
+
+enum PaymentProviderType {
+  mock
+  stripe
+  paypal
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  canceled
+}
+
+// ─── Auth Models (better-auth compatible) ───────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?
+  role          UserRole  @default(STUDENT)
+  organizationId String?  @map("organization_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  organization         Organization?        @relation(fields: [organizationId], references: [id])
+  enrollments          Enrollment[]
+  learningEvents       LearningEvent[]
+  annotations          Annotation[]
+  paymentTransactions  PaymentTransaction[]
+  sessions             Session[]
+  accounts             Account[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                   String    @id @default(cuid())
+  accountId            String    @map("account_id")
+  providerId           String    @map("provider_id")
+  userId               String    @map("user_id")
+  accessToken          String?   @map("access_token")
+  refreshToken         String?   @map("refresh_token")
+  idToken              String?   @map("id_token")
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                String?
+  password             String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+// ─── Multi-Tenant ───────────────────────────────────────────────────
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  logoUrl   String?   @map("logo_url")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users                User[]
+  courses              Course[]
+  ltiTools             LtiTool[]
+  consents             Consent[]
+  paymentTransactions  PaymentTransaction[]
+
+  @@map("organizations")
+}
+
+// ─── LMS Core ───────────────────────────────────────────────────────
+
+model Course {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  imageUrl       String?   @map("image_url")
+  price          Float?
+  isPublished    Boolean   @default(false) @map("is_published")
+  organizationId String    @map("organization_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  enrollments  Enrollment[]
+  activities   Activity[]
+
+  @@index([organizationId])
+  @@map("courses")
+}
+
+model Enrollment {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  courseId     String    @map("course_id")
+  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
+  completedAt DateTime? @map("completed_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        ActivityType
+  content     String?
+  position    Int          @default(0)
+  isPublished Boolean      @default(false) @map("is_published")
+  courseId     String       @map("course_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+
+  course           Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  activitySessions ActivitySession[]
+  learningEvents   LearningEvent[]
+  annotations      Annotation[]
+
+  @@index([courseId])
+  @@map("activities")
+}
+
+// ─── PDF Live Session ───────────────────────────────────────────────
+
+model ActivitySession {
+  id         String    @id @default(cuid())
+  activityId String    @map("activity_id")
+  hostId     String    @map("host_id")
+  isLive     Boolean   @default(false) @map("is_live")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@map("activity_sessions")
+}
+
+model Annotation {
+  id         String   @id @default(cuid())
+  activityId String   @map("activity_id")
+  userId     String   @map("user_id")
+  pageNumber Int      @map("page_number")
+  fabricJson String   @map("fabric_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activityId, pageNumber])
+  @@map("annotations")
+}
+
+// ─── Analytics ──────────────────────────────────────────────────────
+
+model LearningEvent {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  activityId String   @map("activity_id")
+  verb       XApiVerb
+  value      String?
+  timestamp  DateTime @default(now())
+  metadata   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([activityId])
+  @@map("learning_events")
+}
+
+// ─── Payments ───────────────────────────────────────────────────────
+
+model PaymentTransaction {
+  id                String              @id @default(cuid())
+  userId            String              @map("user_id")
+  organizationId    String              @map("organization_id")
+  amount            Float
+  currency          String              @default("usd")
+  provider          PaymentProviderType @default(mock)
+  providerPaymentId String?             @map("provider_payment_id")
+  status            PaymentStatus       @default(pending)
+  metadata          String?
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("payment_transactions")
+}
+
+// ─── LTI 1.3 ────────────────────────────────────────────────────────
+
+model LtiTool {
+  id             String    @id @default(cuid())
+  name           String
+  description    String?
+  clientId       String    @unique @map("client_id")
+  deploymentId   String?   @map("deployment_id")
+  loginUrl       String    @map("login_url")
+  launchUrl      String    @map("launch_url")
+  publicKeyUrl   String?   @map("public_key_url")
+  organizationId String    @map("organization_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("lti_tools")
+}
+
+// ─── Compliance ─────────────────────────────────────────────────────
+
+model Consent {
+  id             String    @id @default(cuid())
+  userEmail      String    @map("user_email")
+  consentType    String    @map("consent_type")
+  granted        Boolean   @default(false)
+  ipAddress      String?   @map("ip_address")
+  organizationId String    @map("organization_id")
+  grantedAt      DateTime  @default(now()) @map("granted_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([userEmail])
+  @@index([organizationId])
+  @@map("consents")
+}
