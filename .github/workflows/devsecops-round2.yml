@@ -1,0 +1,77 @@
+name: devsecops-round2
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: empire_lms
+          POSTGRES_USER: empire_lms
+          POSTGRES_PASSWORD: empire_lms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U empire_lms -d empire_lms"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://empire_lms:empire_lms@127.0.0.1:5432/empire_lms
+      BETTER_AUTH_SECRET: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      PAYMENT_MODE: mock
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build .env for CI
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          PAYMENT_MODE=${PAYMENT_MODE}
+          EOF
+
+      - name: Security preflight
+        run: ./scripts/devsecops/preflight-env.sh .env
+
+      - name: Prisma generate and deploy migration
+        run: |
+          PRISMA_CONFIG_FLAG=""
+          if [ -f prisma/prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma/prisma.config.ts"
+          elif [ -f prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma.config.ts"
+          fi
+
+          npx prisma generate ${PRISMA_CONFIG_FLAG}
+          npx prisma migrate deploy ${PRISMA_CONFIG_FLAG}
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
