@@ -81,6 +81,10 @@ model User {
   paymentTransactions  PaymentTransaction[]
   sessions             Session[]
   accounts             Account[]
+  invitationsCreated   Invitation[]         @relation("InvitationCreator")
+  invitationsAccepted  Invitation[]         @relation("InvitationAcceptor")
+  guardianAsStudent    GuardianStudent[]    @relation("GuardianStudentLink")
+  guardianAsGuardian   GuardianStudent[]    @relation("GuardianGuardianLink")
 
   @@map("users")
 }
@@ -231,6 +235,7 @@ model Course {
   enrollments  Enrollment[]
   activities   Activity[]
   sections     Section[]
+  invitations  Invitation[]
 
   @@index([organizationId])
   @@index([teacherId])
@@ -395,4 +400,59 @@ model Consent {
   @@index([userEmail])
   @@index([organizationId])
   @@map("consents")
+}
+
+// ─── Invitation System ─────────────────────────────────────────────────
+
+enum InvitationType {
+  STUDENT_TO_COURSE
+  GUARDIAN_TO_STUDENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  type        InvitationType
+  status      InvitationStatus @default(PENDING)
+  courseId    String?          @map("course_id")  // Required for STUDENT_TO_COURSE
+  studentEmail String?         @map("student_email")  // Optional email for STUDENT_TO_COURSE
+  guardianId  String?          @map("guardian_id")  // Required for GUARDIAN_TO_STUDENT
+  createdById String           @map("created_by_id")
+  acceptedById String?         @map("accepted_by_id")
+  acceptedAt  DateTime?        @map("accepted_at")
+  expiresAt   DateTime         @map("expires_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  course      Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("InvitationCreator", fields: [createdById], references: [id])
+  acceptedBy  User?            @relation("InvitationAcceptor", fields: [acceptedById], references: [id])
+
+  @@index([code])
+  @@index([createdById])
+  @@index([courseId])
+  @@index([expiresAt])
+  @@map("invitations")
+}
+
+model GuardianStudent {
+  id         String   @id @default(cuid())
+  guardianId String   @map("guardian_id")
+  studentId  String   @map("student_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  guardian User @relation("GuardianGuardianLink", fields: [guardianId], references: [id], onDelete: Cascade)
+  student  User @relation("GuardianStudentLink", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianId, studentId])
+  @@index([guardianId])
+  @@index([studentId])
+  @@map("guardian_students")
 }
