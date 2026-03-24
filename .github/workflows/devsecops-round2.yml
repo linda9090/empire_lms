@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare artifact directory
-        run: mkdir -p artifacts/security
+        run: mkdir -p artifacts/security && chmod 777 artifacts/security
 
       - name: Secret scan (gitleaks)
         run: |
@@ -95,79 +95,78 @@ jobs:
           npm audit --omit=dev --audit-level=high --json \
             | tee artifacts/security/npm-audit.json >/dev/null
 
-      # - name: Build app for DAST baseline
-      #   run: npm run build
+      - name: Build app for DAST baseline
+        run: npm run build
 
-      # - name: Start app for DAST baseline
-      #   run: |
-      #     npm run start -- --hostname 127.0.0.1 --port 3000 > artifacts/security/app-runtime.log 2>&1 &
-      #     echo $! > artifacts/security/app.pid
+      - name: Start app for DAST baseline
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > artifacts/security/app-runtime.log 2>&1 &
+          echo $! > artifacts/security/app.pid
 
-      #     for _ in $(seq 1 60); do
-      #       if curl -fsS http://127.0.0.1:3000 >/dev/null; then
-      #         echo "[OK] App is reachable for DAST."
-      #         exit 0
-      #       fi
-      #       sleep 2
-      #     done
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              echo "[OK] App is reachable for DAST."
+              exit 0
+            fi
+            sleep 2
+          done
 
-      #     echo "[ERROR] App did not become reachable in time."
-      #     cat artifacts/security/app-runtime.log || true
-      #     exit 1
+          echo "[ERROR] App did not become reachable in time."
+          cat artifacts/security/app-runtime.log || true
+          exit 1
 
-      # DAST temporarily disabled due to volume mount permission issues
-      # TODO: Fix ZAP volume mount permissions and re-enable
-      # - name: DAST - OWASP ZAP baseline scan
-      #   run: |
-      #     docker run --rm \
-      #       --network host \
-      #       -v "$PWD/artifacts/security:/zap/wrk" \
-      #       ghcr.io/zaproxy/zaproxy:stable \
-      #       zap-baseline.py \
-      #       -t http://127.0.0.1:3000 \
-      #       -m 3 \
-      #       -T 10 \
-      #       -J zap-report.json \
-      #       -w zap-report.md \
-      #       -x zap-report.xml \
-      #       -I
+      - name: DAST - OWASP ZAP baseline scan
+        run: |
+          docker run --rm \
+            --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD/artifacts/security:/zap/wrk" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://127.0.0.1:3000 \
+            -m 3 \
+            -T 10 \
+            -J zap-report.json \
+            -w zap-report.md \
+            -x zap-report.xml \
+            -I
 
-      # - name: DAST policy gate (high findings only)
-      #   run: |
-      #     node <<'NODE'
-      #     const fs = require('fs');
-      #     const reportPath = 'artifacts/security/zap-report.json';
-      #     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-      #     const findings = [];
+      - name: DAST policy gate (high findings only)
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const reportPath = 'artifacts/security/zap-report.json';
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          const findings = [];
 
-      #     for (const site of report.site || []) {
-      #       for (const alert of site.alerts || []) {
-      #         const risk = Number(alert.riskcode ?? 0);
-      #         if (risk >= 3) {
-      #           findings.push({
-      #             name: alert.name,
-      #             riskdesc: alert.riskdesc,
-      #             confidence: alert.confidence,
-      #             uri: alert.instances?.[0]?.uri || 'n/a',
-      #           });
-      #         }
-      #       }
-      #     }
+          for (const site of report.site || []) {
+            for (const alert of site.alerts || []) {
+              const risk = Number(alert.riskcode ?? 0);
+              if (risk >= 3) {
+                findings.push({
+                  name: alert.name,
+                  riskdesc: alert.riskdesc,
+                  confidence: alert.confidence,
+                  uri: alert.instances?.[0]?.uri || 'n/a',
+                });
+              }
+            }
+          }
 
-      #     console.log(`DAST high findings: ${findings.length}`);
-      #     if (findings.length > 0) {
-      #       console.error('[ERROR] DAST high-risk findings detected.');
-      #       console.error(JSON.stringify(findings, null, 2));
-      #       process.exit(1);
-      #     }
-      #     NODE
+          console.log(`DAST high findings: ${findings.length}`);
+          if (findings.length > 0) {
+            console.error('[ERROR] DAST high-risk findings detected.');
+            console.error(JSON.stringify(findings, null, 2));
+            process.exit(1);
+          }
+          NODE
 
-      # - name: Stop DAST app
-      #   if: always()
-      #   run: |
-      #     if [ -f artifacts/security/app.pid ]; then
-      #       kill "$(cat artifacts/security/app.pid)" >/dev/null 2>&1 || true
-      #     fi
+      - name: Stop DAST app
+        if: always()
+        run: |
+          if [ -f artifacts/security/app.pid ]; then
+            kill "$(cat artifacts/security/app.pid)" >/dev/null 2>&1 || true
+          fi
 
       - name: Build and push container image
         run: |
