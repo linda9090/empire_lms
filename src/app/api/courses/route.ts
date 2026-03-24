@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
         price: price !== undefined ? Number(price) : null,
         isPublished: isPublished === true,
         organizationId: session.user.organizationId,
+        teacherId: session.user.id,
       },
       include: {
         organization: {
