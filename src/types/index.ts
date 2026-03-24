@@ -27,6 +27,10 @@ export type PaymentStatus =
   | "failed"
   | "canceled";
 
+export type InvitationType = "STUDENT_TO_COURSE" | "GUARDIAN_TO_STUDENT";
+
+export type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+
 export interface ApiResponse<T = unknown> {
   data: T | null;
   error: string | null;
