@@ -1,0 +1,21 @@
+title = "empire_lms gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignore generated or local-only directories"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)artifacts/''',
+  '''(^|/)video_output/''',
+  '''(^|/)\.climpire/''',
+  '''(^|/)\.climpire-worktrees/''',
+]
+
+[[allowlists]]
+description = "Ignore known CI placeholder"
+regexes = [
+  '''ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci''',
+]
