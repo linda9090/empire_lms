@@ -11,6 +11,7 @@ This checklist closes the unresolved Round 1 merge-blocking item from Infrastruc
 5. Container image security gate in CI (base/runtime)
 6. SBOM generation gate in CI
 7. Image signing verification gate in CI
+8. Issue #5 API Contract regression gate in CI
 
 Primary workflow: `.github/workflows/devsecops-round2.yml`
 
@@ -26,6 +27,7 @@ Primary workflow: `.github/workflows/devsecops-round2.yml`
 | Container CVE | `trivy image --vuln-type os --severity HIGH,CRITICAL --exit-code 1` | High/Critical container vulnerability detected |
 | SBOM | `syft` SPDX JSON export | SBOM generation failure |
 | Image signing verification | `cosign sign` + `cosign verify` | Signature creation or verification failure |
+| API Contract regression (Issue #5) | `scripts/devsecops/verify-api-contract.sh` + focused Vitest suite | `courses/enrollments/curriculum` API contract regression test fails or required route file is missing |
 
 ## Required PR Evidence
 
