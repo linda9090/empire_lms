@@ -123,7 +123,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return PUT(request, params);
+  return PUT(request, { params });
 }
 
 // DELETE /api/courses/[id] - Soft delete a course (owner or ADMIN only)
