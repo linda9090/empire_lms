@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { GET, PATCH, DELETE } from "@/app/api/enrollments/[id]/route";
 import { EnrollmentStatus } from "@prisma/client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Mock dependencies
 vi.mock("@/lib/get-session", () => ({
   getSession: vi.fn(),
