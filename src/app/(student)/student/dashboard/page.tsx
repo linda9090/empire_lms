@@ -56,19 +56,24 @@ async function getStudentCourseProgress(
   const completedProgress = await db.progress.findMany({
     where: {
       userId,
-      activity: {
-        courseId: {
-          in: courseIds,
+      lesson: {
+        section: {
+          courseId: {
+            in: courseIds,
+          },
         },
         deletedAt: null,
-        isPublished: true,
       },
     },
     select: {
-      activityId: true,
-      activity: {
+      lessonId: true,
+      lesson: {
         select: {
-          courseId: true,
+          section: {
+            select: {
+              courseId: true,
+            },
+          },
         },
       },
     },
@@ -77,9 +82,9 @@ async function getStudentCourseProgress(
   const completedByCourse = new Map<string, Set<string>>();
   for (const progress of completedProgress) {
     const progressSet =
-      completedByCourse.get(progress.activity.courseId) ?? new Set<string>();
-    progressSet.add(progress.activityId);
-    completedByCourse.set(progress.activity.courseId, progressSet);
+      completedByCourse.get(progress.lesson.section.courseId) ?? new Set<string>();
+    progressSet.add(progress.lessonId);
+    completedByCourse.set(progress.lesson.section.courseId, progressSet);
   }
 
   return enrollments.map((enrollment) => {

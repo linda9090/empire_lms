@@ -88,18 +88,23 @@ async function getTeacherDashboardData(): Promise<TeacherDashboardData> {
   const [progressRows, recentEnrollments] = await Promise.all([
     db.progress.findMany({
       where: {
-        activity: {
-          courseId: {
-            in: courseIds,
+        lesson: {
+          section: {
+            courseId: {
+              in: courseIds,
+            },
           },
           deletedAt: null,
-          isPublished: true,
         },
       },
       select: {
-        activity: {
+        lesson: {
           select: {
-            courseId: true,
+            section: {
+              select: {
+                courseId: true,
+              },
+            },
           },
         },
       },
@@ -130,8 +135,8 @@ async function getTeacherDashboardData(): Promise<TeacherDashboardData> {
 
   const completionsByCourse = new Map<string, number>();
   for (const row of progressRows) {
-    const currentCount = completionsByCourse.get(row.activity.courseId) ?? 0;
-    completionsByCourse.set(row.activity.courseId, currentCount + 1);
+    const currentCount = completionsByCourse.get(row.lesson.section.courseId) ?? 0;
+    completionsByCourse.set(row.lesson.section.courseId, currentCount + 1);
   }
 
   const recentByCourse = new Map<
