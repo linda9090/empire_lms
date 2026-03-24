@@ -77,3 +77,52 @@ Review 보완 요청(미해결 항목):
 
 체크리스트 1번의 **게이트 구현 작업은 완료**됐으나, 현재 로컬 검증에서 SAST/SCA가 HIGH 기준으로 실패했다.  
 따라서 인프라보안팀 최종 승인 상태는 **보류(차단 유지)**이며, 머지 전 선행 실패 항목 해소가 필요하다.
+
+---
+
+## 9) Review 보완 반영 (2026-03-25, DevOps 거버넌스)
+
+Review 회의에서 추가된 DevOps 필수 보완사항을 아래와 같이 반영했다.
+
+1. `main/develop` 브랜치 보호 기준 강화
+   - 최소 승인자: 2명 이상
+   - 강제 푸시: 금지
+   - 브랜치 삭제: 금지
+   - 관리자 우회: 금지
+2. 머지 전 자동 CI 품질 게이트 고정
+   - `merge-gate / lint`
+   - `merge-gate / test`
+   - `merge-gate / build`
+   - `devsecops-round2 / verify`
+
+추가 반영 파일:
+
+1. `.github/workflows/merge-gate.yml`
+2. `scripts/devsecops/apply-branch-protection.sh`
+3. `scripts/devsecops/verify-branch-protection.sh`
+4. `docs/devsecops/round2-priority-checks.md`
+5. `docs/playbooks/02-github-branch-strategy-remediation-playbook.md`
+
+적용/검증 명령:
+
+```bash
+./scripts/devsecops/apply-branch-protection.sh linda9090/empire_lms
+./scripts/devsecops/verify-branch-protection.sh linda9090/empire_lms
+```
+
+판정:
+
+- 정책 정의/자동화 스크립트/CI 워크플로우 반영 완료
+- `linda9090/empire_lms` 원격 저장소에 보호규칙 실제 적용 완료
+- 검증 결과: `failures=0` (main/develop 모두 approvals 2+, force push/deletion OFF, 필수 체크 4개 고정)
+
+로컬 게이트 시뮬레이션 (2026-03-25):
+
+1. `npm run lint` → FAIL (`@typescript-eslint/no-explicit-any` 위반 다수, 총 161 errors)
+2. `npm run test` → PASS (81 passed, 2 skipped)
+3. `npm run build` → PASS
+
+MVP 정책 판정:
+
+- `lint` 실패는 머지 차단(CRITICAL/HIGH)으로 유지
+- 테스트 코드 타입 규칙 위반 수정은 개발팀 선행 조치 필요
