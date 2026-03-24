@@ -58,55 +58,16 @@ enum PaymentStatus {
   canceled
 }
 
-enum NotificationType {
-  ENROLLMENT_COMPLETED
-  PAYMENT_SUCCEEDED
-  LESSON_CREATED
-  STUDENT_ENROLLED
-  LESSON_COMPLETED
-  COURSE_PUBLISHED
-  INVITE_SENT
-  INVITE_ACCEPTED
+enum InvitationType {
+  STUDENT_TO_COURSE
+  GUARDIAN_TO_STUDENT
 }
 
-enum NotificationStatus {
+enum InvitationStatus {
   PENDING
-  SENT
-  FAILED
-}
-
-enum AuditAction {
-  USER_ROLE_CHANGED
-  USER_SUSPENDED
-  USER_UNSUSPENDED
-  COURSE_PUBLISHED
-  COURSE_UNPUBLISHED
-  COURSE_DELETED
-  COURSE_RESTORED
-  PAYMENT_REFUNDED
-  ENROLLMENT_CANCELLED
-}
-
-// ─── Audit & Compliance ───────────────────────────────────────────────
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  adminId    String   @map("admin_id")
-  action     AuditAction
-  targetType String   @map("target_type")
-  targetId   String   @map("target_id")
-  oldValue   String?  @db.Text
-  newValue   String?  @db.Text
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  @@index([adminId])
-  @@index([targetType, targetId])
-  @@index([createdAt])
-  @@map("audit_logs")
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }
 
 // ─── Auth Models (better-auth compatible) ───────────────────────────
@@ -132,8 +93,10 @@ model User {
   paymentTransactions  PaymentTransaction[]
   sessions             Session[]
   accounts             Account[]
-  notifications        Notification[]
-  auditLogs            AuditLog[]
+  createdInvitations   Invitation[]             @relation("InvitationCreator")
+  receivedInvitations  Invitation[]             @relation("InvitationReceiver")
+  guardianRelationships GuardianStudent[]       @relation("GuardianRelationship")
+  studentRelationships  GuardianStudent[]       @relation("StudentRelationship")
 
   @@map("users")
 }
@@ -200,6 +163,7 @@ model Organization {
   ltiTools             LtiTool[]
   consents             Consent[]
   paymentTransactions  PaymentTransaction[]
+  invitations          Invitation[]
 
   @@map("organizations")
 }
@@ -284,6 +248,7 @@ model Course {
   enrollments  Enrollment[]
   activities   Activity[]
   sections     Section[]
+  invitations  Invitation[]
 
   @@index([organizationId])
   @@index([teacherId])
@@ -450,28 +415,51 @@ model Consent {
   @@map("consents")
 }
 
-// ─── Notifications ─────────────────────────────────────────────────────
+// ─── Guardian-Student Relationship ──────────────────────────────────────
 
-model Notification {
-  id             String             @id @default(cuid())
-  userId         String             @map("user_id")
-  type           NotificationType
-  title          String
-  message        String             @db.Text
-  emailStatus    NotificationStatus @default(PENDING) @map("email_status")
-  isRead         Boolean            @default(false) @map("is_read")
-  readAt         DateTime?          @map("read_at")
-  courseId       String?            @map("course_id")
-  lessonId       String?            @map("lesson_id")
-  enrollmentId   String?            @map("enrollment_id")
-  metadata       String?            @db.Text
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
+model GuardianStudent {
+  id          String   @id @default(cuid())
+  guardianId  String   @map("guardian_id")
+  studentId   String   @map("student_id")
+  relationship String  @default("parent") // parent, grandparent, etc.
+  createdAt   DateTime @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guardian User @relation("GuardianRelationship", fields: [guardianId], references: [id], onDelete: Cascade)
+  student  User @relation("StudentRelationship", fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([userId, isRead])
-  @@index([createdAt])
-  @@map("notifications")
+  @@unique([guardianId, studentId])
+  @@index([guardianId])
+  @@index([studentId])
+  @@map("guardian_students")
+}
+
+// ─── Invitation System ──────────────────────────────────────────────────
+
+model Invitation {
+  id              String          @id @default(cuid())
+  code            String          @unique
+  type            InvitationType
+  status          InvitationStatus @default(PENDING)
+  creatorId       String          @map("creator_id")
+  organizationId  String          @map("organization_id")
+  courseId        String?         @map("course_id")
+  studentEmail    String?         @map("student_email")
+  guardianEmail   String?         @map("guardian_email")
+  expiresAt       DateTime        @map("expires_at")
+  acceptedAt      DateTime?       @map("accepted_at")
+  acceptedBy      String?         @map("accepted_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  creator      User         @relation("InvitationCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  receiver     User?        @relation("InvitationReceiver", fields: [acceptedBy], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  course       Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([creatorId])
+  @@index([expiresAt])
+  @@index([status])
+  @@map("invitations")
 }
