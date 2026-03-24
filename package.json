@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:contract:issue5": "vitest run src/__tests__/api/courses.test.ts src/__tests__/api/enrollments.test.ts src/__tests__/api/curriculum.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "verify:issue5:security": "bash ./scripts/devsecops/verify-issue5-security.sh"
