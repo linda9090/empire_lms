@@ -119,7 +119,6 @@ jobs:
         run: |
           docker run --rm \
             --network host \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD/artifacts/security:/zap/wrk" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
