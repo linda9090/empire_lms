@@ -43,3 +43,9 @@ next-env.d.ts
 
 # local security artifacts
 /artifacts/
+
+# service management
+.service.pid
+/logs/
+.climpire-worktrees/
+.climpire/
