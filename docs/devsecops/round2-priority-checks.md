@@ -12,7 +12,10 @@ This checklist closes the unresolved Round 1 merge-blocking item from Infrastruc
 6. SBOM generation gate in CI
 7. Image signing verification gate in CI
 
-Primary workflow: `.github/workflows/devsecops-round2.yml`
+Primary workflows:
+
+- `.github/workflows/devsecops-round2.yml` (security gates)
+- `.github/workflows/merge-gate.yml` (merge quality gates)
 
 ## CI Gate Matrix (Blocking)
 
@@ -26,6 +29,35 @@ Primary workflow: `.github/workflows/devsecops-round2.yml`
 | Container CVE | `trivy image --vuln-type os --severity HIGH,CRITICAL --exit-code 1` | High/Critical container vulnerability detected |
 | SBOM | `syft` SPDX JSON export | SBOM generation failure |
 | Image signing verification | `cosign sign` + `cosign verify` | Signature creation or verification failure |
+
+## Merge Quality Gate Matrix (Blocking)
+
+| Gate | Workflow Context | Fail Condition |
+|---|---|---|
+| Lint | `merge-gate / lint` | `npm run lint` non-zero exit |
+| Test | `merge-gate / test` | `npm run test` non-zero exit |
+| Build | `merge-gate / build` | `npx tsc --noEmit` or `npm run build` non-zero exit |
+
+## Branch Protection Baseline (main + develop)
+
+1. Pull request before merge: ON
+2. Required approving reviews: 2+
+3. Required status checks (strict): ON
+4. Required contexts:
+   - `merge-gate / lint`
+   - `merge-gate / test`
+   - `merge-gate / build`
+   - `devsecops-round2 / verify`
+5. Do not allow bypassing above settings: ON
+6. Allow force pushes: OFF
+7. Allow deletions: OFF
+
+Automation scripts:
+
+```bash
+./scripts/devsecops/apply-branch-protection.sh linda9090/empire_lms
+./scripts/devsecops/verify-branch-protection.sh linda9090/empire_lms
+```
 
 ## Required PR Evidence
 

@@ -145,23 +145,39 @@ git push -u origin develop
 
 `main`
 1. Require a pull request before merging: ON
-2. Require approvals: 1명 이상
-3. Require status checks to pass: ON (`devsecops-round2 / verify` 체크 컨텍스트 권장)
+2. Require approvals: 2명 이상
+3. Require status checks to pass: ON
+   - `merge-gate / lint`
+   - `merge-gate / test`
+   - `merge-gate / build`
+   - `devsecops-round2 / verify`
 4. Do not allow bypassing above settings: ON
 5. Allow force pushes: OFF
 6. Allow deletions: OFF
 
 `develop`
 1. Require a pull request before merging: ON
-2. Require status checks to pass: ON
-3. Allow force pushes: OFF
+2. Require approvals: 2명 이상
+3. Require status checks to pass: ON
+   - `merge-gate / lint`
+   - `merge-gate / test`
+   - `merge-gate / build`
+   - `devsecops-round2 / verify`
+4. Do not allow bypassing above settings: ON
+5. Allow force pushes: OFF
+6. Allow deletions: OFF
 
-#### 적용 방법 (UI)
+#### 적용 방법 (CLI 권장)
 
-1. GitHub 저장소 `Settings` → `Branches` 이동
-2. `Add branch protection rule`에서 `main` 규칙 먼저 생성
-3. 같은 방식으로 `develop` 규칙 생성
-4. 저장 후 아래 검증 명령으로 API 값 일치 확인
+```bash
+# 2인 승인 + 강제 푸시/삭제 금지 + 머지 전 CI 컨텍스트 고정
+./scripts/devsecops/apply-branch-protection.sh linda9090/empire_lms
+
+# 보호 규칙 검증
+./scripts/devsecops/verify-branch-protection.sh linda9090/empire_lms
+```
+
+UI 수동 적용 시에도 반드시 위 검증 스크립트로 API 값을 재확인한다.
 
 #### 검증 명령
 
@@ -170,13 +186,15 @@ gh api repos/linda9090/empire_lms/branches/main/protection \
   --jq '{approvals:.required_pull_request_reviews.required_approving_review_count,strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,force_push:.allow_force_pushes.enabled,deletions:.allow_deletions.enabled}'
 
 gh api repos/linda9090/empire_lms/branches/develop/protection \
-  --jq '{has_pr_reviews:(.required_pull_request_reviews != null),strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,force_push:.allow_force_pushes.enabled}'
+  --jq '{approvals:.required_pull_request_reviews.required_approving_review_count,has_pr_reviews:(.required_pull_request_reviews != null),strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,force_push:.allow_force_pushes.enabled,deletions:.allow_deletions.enabled}'
 ```
 
 #### 완료 기준
 
 1. 두 API 호출이 404 없이 성공
-2. 규칙 값이 요구사항과 일치
+2. `main/develop` 모두 approvals가 2 이상
+3. `main/develop` 모두 필수 컨텍스트 4개(`merge-gate` 3개 + `devsecops-round2 / verify`) 포함
+4. `main/develop` 모두 force push/deletion이 false
 
 ---
 
