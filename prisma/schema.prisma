@@ -24,6 +24,12 @@ enum ActivityType {
   LTI
 }
 
+enum LessonType {
+  VIDEO
+  PDF
+  TEXT
+}
+
 enum XApiVerb {
   started
   completed
@@ -60,7 +66,9 @@ model User {
   deletedAt     DateTime? @map("deleted_at")
 
   organization         Organization?        @relation(fields: [organizationId], references: [id])
+  coursesTeaching      Course[]             @relation("CourseTeacher")
   enrollments          Enrollment[]
+  progress             Progress[]
   learningEvents       LearningEvent[]
   annotations          Annotation[]
   paymentTransactions  PaymentTransaction[]
@@ -136,6 +144,66 @@ model Organization {
   @@map("organizations")
 }
 
+// ─── Curriculum (Sections & Lessons) ───────────────────────────────────
+
+model Section {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  position    Int       @default(0)
+  courseId    String    @map("course_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId])
+  @@map("sections")
+}
+
+model Lesson {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  type        LessonType
+  contentUrl  String?    @map("content_url")     // S3 URL for VIDEO/PDF
+  contentText String?    @map("content_text")    // Markdown content for TEXT
+  duration    Int?       // Duration in seconds for VIDEO
+  position    Int        @default(0)
+  isPublished Boolean    @default(false) @map("is_published")
+  sectionId   String     @map("section_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress Progress[]
+
+  @@index([sectionId])
+  @@map("lessons")
+}
+
+model Progress {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  lessonId   String    @map("lesson_id")
+  completed  Boolean   @default(false)
+  progressPercent Int  @default(0) @map("progress_percent")  // 0-100 for videos
+  completedAt DateTime? @map("completed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@map("progress")
+}
+
 // ─── LMS Core ───────────────────────────────────────────────────────
 
 model Course {
@@ -146,15 +214,19 @@ model Course {
   price          Float?
   isPublished    Boolean   @default(false) @map("is_published")
   organizationId String    @map("organization_id")
+  teacherId      String?   @map("teacher_id")  // TEACHER who owns this course
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  teacher      User?        @relation("CourseTeacher", fields: [teacherId], references: [id])
   enrollments  Enrollment[]
   activities   Activity[]
+  sections     Section[]
 
   @@index([organizationId])
+  @@index([teacherId])
   @@map("courses")
 }
 

@@ -1,0 +1,16 @@
+.git
+.github
+.claude
+.climpire
+.climpire-worktrees
+node_modules
+npm-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.production
+.env.production.local
+.next/cache
+coverage
+artifacts
+video_output
