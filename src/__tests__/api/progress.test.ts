@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { GET as GET_BY_COURSE } from "@/app/api/progress/[courseId]/route";
 import { POST } from "@/app/api/progress/route";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 vi.mock("@/lib/get-session", () => ({
   getSession: vi.fn(),
 }));
@@ -149,11 +151,13 @@ describe("Progress API - POST /api/progress", () => {
       user: { id: "student-1", role: "STUDENT" },
     } as any);
 
-    vi.mocked(db.activity.findFirst).mockResolvedValue({
-      id: "activity-1",
+    vi.mocked(db.lesson.findFirst).mockResolvedValue({
+      id: "lesson-1",
       title: "Lesson 1",
-      courseId: "course-1",
-      course: { id: "course-1", title: "Course 1" },
+      section: {
+        courseId: "course-1",
+        course: { id: "course-1", title: "Course 1" },
+      },
     } as any);
     vi.mocked(db.enrollment.findFirst).mockResolvedValue({ id: "enroll-1" } as any);
     vi.mocked(db.progress.findUnique).mockResolvedValue(null);
@@ -161,7 +165,7 @@ describe("Progress API - POST /api/progress", () => {
 
     const request = new NextRequest("http://localhost:3000/api/progress", {
       method: "POST",
-      body: JSON.stringify({ activityId: "activity-1" }),
+      body: JSON.stringify({ lessonId: "lesson-1" }),
     });
 
     const response = await POST(request as any);
@@ -190,7 +194,7 @@ describe("Progress API - GET /api/progress/[courseId]", () => {
       title: "Course 1",
     } as any);
     vi.mocked(db.enrollment.findFirst).mockResolvedValue({ id: "enroll-1" } as any);
-    vi.mocked(db.activity.count).mockResolvedValue(5);
+    vi.mocked(db.lesson.count).mockResolvedValue(5);
     vi.mocked(db.progress.count).mockResolvedValue(0);
 
     const request = new NextRequest("http://localhost:3000/api/progress/course-1");
@@ -216,7 +220,7 @@ describe("Progress API - GET /api/progress/[courseId]", () => {
       title: "Course 1",
     } as any);
     vi.mocked(db.enrollment.findFirst).mockResolvedValue({ id: "enroll-1" } as any);
-    vi.mocked(db.activity.count).mockResolvedValue(5);
+    vi.mocked(db.lesson.count).mockResolvedValue(5);
     vi.mocked(db.progress.count).mockResolvedValue(5);
 
     const request = new NextRequest("http://localhost:3000/api/progress/course-1");
@@ -242,7 +246,7 @@ describe("Progress API - GET /api/progress/[courseId]", () => {
       title: "Course 1",
     } as any);
     vi.mocked(db.enrollment.findFirst).mockResolvedValue({ id: "enroll-1" } as any);
-    vi.mocked(db.activity.count).mockResolvedValue(10);
+    vi.mocked(db.lesson.count).mockResolvedValue(10);
     vi.mocked(db.progress.count).mockResolvedValue(1);
 
     const request = new NextRequest("http://localhost:3000/api/progress/course-1");
