@@ -50,8 +50,16 @@ vi.mock("@/lib/db", () => ({
     },
     enrollment: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
+    user: {
+      findMany: vi.fn(),
     },
   },
+}));
+
+vi.mock("@/lib/notification", () => ({
+  createNotificationsForRecipients: vi.fn().mockResolvedValue([]),
 }));
 
 const mockGetSignedUrl = vi.fn().mockResolvedValue("https://mock-presigned-url");
@@ -71,8 +79,11 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 }));
 
 describe("Curriculum API - Sections", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.enrollment.findMany).mockResolvedValue([] as any);
+    vi.mocked(db.user.findMany).mockResolvedValue([] as any);
   });
 
   describe("POST /api/courses/[id]/sections - Create Section", () => {
@@ -236,8 +247,11 @@ describe("Curriculum API - Sections", () => {
 });
 
 describe("Curriculum API - Lessons", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.enrollment.findMany).mockResolvedValue([] as any);
+    vi.mocked(db.user.findMany).mockResolvedValue([] as any);
   });
 
   describe("POST /api/courses/[id]/sections/[sectionId]/lessons - Create Lesson", () => {

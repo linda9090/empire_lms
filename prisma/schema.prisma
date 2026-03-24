@@ -58,55 +58,22 @@ enum PaymentStatus {
   canceled
 }
 
-enum NotificationType {
-  ENROLLMENT_COMPLETED
-  PAYMENT_SUCCEEDED
-  LESSON_CREATED
-  STUDENT_ENROLLED
-  LESSON_COMPLETED
-  COURSE_PUBLISHED
-  INVITE_SENT
-  INVITE_ACCEPTED
+enum NotificationEventType {
+  STUDENT_ENROLLMENT_COMPLETED
+  STUDENT_PAYMENT_COMPLETED
+  STUDENT_NEW_LESSON_REGISTERED
+  TEACHER_NEW_STUDENT_REGISTERED
+  TEACHER_STUDENT_LESSON_COMPLETED
+  GUARDIAN_CHILD_LEARNING_COMPLETED
+  GUARDIAN_NEW_COURSE_REGISTERED
 }
 
-enum NotificationStatus {
+enum NotificationEmailStatus {
   PENDING
+  RETRY_PENDING
   SENT
   FAILED
-}
-
-enum AuditAction {
-  USER_ROLE_CHANGED
-  USER_SUSPENDED
-  USER_UNSUSPENDED
-  COURSE_PUBLISHED
-  COURSE_UNPUBLISHED
-  COURSE_DELETED
-  COURSE_RESTORED
-  PAYMENT_REFUNDED
-  ENROLLMENT_CANCELLED
-}
-
-// ─── Audit & Compliance ───────────────────────────────────────────────
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  adminId    String   @map("admin_id")
-  action     AuditAction
-  targetType String   @map("target_type")
-  targetId   String   @map("target_id")
-  oldValue   String?  @db.Text
-  newValue   String?  @db.Text
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  @@index([adminId])
-  @@index([targetType, targetId])
-  @@index([createdAt])
-  @@map("audit_logs")
+  SKIPPED
 }
 
 // ─── Auth Models (better-auth compatible) ───────────────────────────
@@ -130,10 +97,9 @@ model User {
   learningEvents       LearningEvent[]
   annotations          Annotation[]
   paymentTransactions  PaymentTransaction[]
+  notifications        Notification[]
   sessions             Session[]
   accounts             Account[]
-  notifications        Notification[]
-  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -406,6 +372,38 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
+model Notification {
+  id                String                  @id @default(cuid())
+  userId            String                  @map("user_id")
+  eventType         NotificationEventType   @map("event_type")
+  title             String
+  message           String
+  linkUrl           String?                 @map("link_url")
+  metadata          String?
+  idempotencyKey    String?                 @unique @map("idempotency_key")
+  courseId          String?                 @map("course_id")
+  lessonId          String?                 @map("lesson_id")
+  isRead            Boolean                 @default(false) @map("is_read")
+  readAt            DateTime?               @map("read_at")
+  emailStatus       NotificationEmailStatus @default(PENDING) @map("email_status")
+  emailError        String?                 @map("email_error")
+  emailSentAt       DateTime?               @map("email_sent_at")
+  emailRetryCount   Int                     @default(0) @map("email_retry_count")
+  nextEmailRetryAt  DateTime?               @map("next_email_retry_at")
+  emailLastAttemptAt DateTime?              @map("email_last_attempt_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([eventType, createdAt])
+  @@index([emailStatus, nextEmailRetryAt])
+  @@index([courseId])
+  @@index([lessonId])
+  @@map("notifications")
+}
+
 // ─── LTI 1.3 ────────────────────────────────────────────────────────
 
 model LtiTool {
@@ -448,30 +446,4 @@ model Consent {
   @@index([userEmail])
   @@index([organizationId])
   @@map("consents")
-}
-
-// ─── Notifications ─────────────────────────────────────────────────────
-
-model Notification {
-  id             String             @id @default(cuid())
-  userId         String             @map("user_id")
-  type           NotificationType
-  title          String
-  message        String             @db.Text
-  emailStatus    NotificationStatus @default(PENDING) @map("email_status")
-  isRead         Boolean            @default(false) @map("is_read")
-  readAt         DateTime?          @map("read_at")
-  courseId       String?            @map("course_id")
-  lessonId       String?            @map("lesson_id")
-  enrollmentId   String?            @map("enrollment_id")
-  metadata       String?            @db.Text
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([userId, isRead])
-  @@index([createdAt])
-  @@map("notifications")
 }

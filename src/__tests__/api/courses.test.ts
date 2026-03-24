@@ -18,7 +18,14 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    user: {
+      findMany: vi.fn(),
+    },
   },
+}));
+
+vi.mock("@/lib/notification", () => ({
+  createNotificationsForRecipients: vi.fn().mockResolvedValue([]),
 }));
 
 describe("Courses API - GET /api/courses", () => {

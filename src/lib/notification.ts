@@ -1,387 +1,536 @@
-/**
- * Notification Library
- *
- * 설계 원칙:
- * 1. 이메일 발송 실패해도 DB에 알림은 저장됨 (내성 설계)
- * 2. emailStatus 필드로 이메일 발송 상태 추적 (PENDING -> SENT or FAILED)
- * 3. 나중에 백그라운드 잡으로 FAILED 상태 재시도 가능
- */
-
+import {
+  NotificationEmailStatus,
+  NotificationEventType,
+  Prisma,
+  UserRole,
+  type Notification,
+} from "@prisma/client";
+import { z } from "zod/v4";
 import { db } from "@/lib/db";
-import type { NotificationType, NotificationStatus } from "@prisma/client";
 
-// ─── Type Definitions ─────────────────────────────────────────────────────
+const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
+const DEFAULT_RETRY_SCHEDULE_MINUTES = [5, 30, 120] as const;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 191;
 
-export type CreateNotificationParams = {
-  userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  courseId?: string | null;
-  lessonId?: string | null;
-  enrollmentId?: string | null;
-  metadata?: Record<string, unknown> | null;
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+
+const globalForNotificationRateLimit = globalThis as typeof globalThis & {
+  notificationRateLimitStore?: Map<string, RateLimitBucket>;
 };
 
-export type SendEmailParams = {
+const notificationRateLimitStore =
+  globalForNotificationRateLimit.notificationRateLimitStore ?? new Map<string, RateLimitBucket>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForNotificationRateLimit.notificationRateLimitStore = notificationRateLimitStore;
+}
+
+const notificationRecipientSchema = z.object({
+  userId: z.string().trim().min(1, "recipient.userId is required"),
+  email: z.string().trim().email().optional().nullable(),
+  name: z.string().trim().max(120).optional().nullable(),
+  role: z.nativeEnum(UserRole).optional().nullable(),
+});
+
+const notificationMetadataSchema = z.union([z.record(z.string(), z.unknown()), z.string()]);
+
+const createNotificationSchema = z.object({
+  recipient: notificationRecipientSchema,
+  eventType: z.nativeEnum(NotificationEventType),
+  title: z.string().trim().min(1, "title is required").max(140),
+  message: z.string().trim().min(1, "message is required").max(4000),
+  linkUrl: z.string().trim().url().max(2048).optional().nullable(),
+  metadata: notificationMetadataSchema.optional().nullable(),
+  courseId: z.string().trim().min(1).optional().nullable(),
+  lessonId: z.string().trim().min(1).optional().nullable(),
+  idempotencyKey: z.string().trim().min(1).max(MAX_IDEMPOTENCY_KEY_LENGTH).optional(),
+  sendEmail: z.boolean().optional(),
+});
+
+const retryFailedNotificationEmailsSchema = z.object({
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+export type NotificationRecipient = z.infer<typeof notificationRecipientSchema>;
+export type CreateNotificationInput = z.infer<typeof createNotificationSchema>;
+export type RetryFailedNotificationEmailsInput = z.infer<typeof retryFailedNotificationEmailsSchema>;
+
+export type RetryNotificationResult = {
+  processed: number;
+  sent: number;
+  retried: number;
+  failed: number;
+  skipped: number;
+};
+
+export type RateLimitInput = {
+  key: string;
+  limit: number;
+  windowMs: number;
+};
+
+export type RateLimitResult = {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+};
+
+function normalizeOptionalString(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function serializeMetadata(
+  metadata: z.infer<typeof notificationMetadataSchema> | undefined | null
+): string | null {
+  if (metadata === undefined || metadata === null) {
+    return null;
+  }
+
+  if (typeof metadata === "string") {
+    const trimmed = metadata.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  return JSON.stringify(metadata);
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === "P2002";
+  }
+
+  return false;
+}
+
+function computeNextRetryAt(retryCount: number): Date | null {
+  const index = retryCount - 1;
+  if (index < 0 || index >= DEFAULT_RETRY_SCHEDULE_MINUTES.length) {
+    return null;
+  }
+
+  const minutes = DEFAULT_RETRY_SCHEDULE_MINUTES[index];
+  return new Date(Date.now() + minutes * 60_000);
+}
+
+function sanitizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message.slice(0, 500);
+  }
+
+  return "Unknown email sending error";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildNotificationEmailHtml(
+  title: string,
+  message: string,
+  linkUrl?: string | null
+): string {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message).replaceAll("\n", "<br />");
+  const ctaHtml = linkUrl
+    ? `<p style="margin-top:20px;"><a href="${escapeHtml(linkUrl)}" style="color:#ffffff;background:#0f766e;padding:10px 14px;border-radius:6px;text-decoration:none;display:inline-block;">알림 확인하기</a></p>`
+    : "";
+
+  return `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;max-width:640px;margin:0 auto;padding:20px;">
+      <h2 style="font-size:20px;margin-bottom:12px;">${safeTitle}</h2>
+      <p style="margin:0 0 10px 0;">${safeMessage}</p>
+      ${ctaHtml}
+      <p style="margin-top:24px;font-size:12px;color:#6b7280;">Empire LMS 알림 메일입니다.</p>
+    </div>
+  `;
+}
+
+async function sendNotificationEmailViaResend(input: {
   to: string;
   subject: string;
   html: string;
-};
-
-export type NotificationResult = {
-  id: string;
-  userId: string;
-  emailStatus: NotificationStatus;
-  emailError?: string;
-};
-
-// ─── Email Service (Resend) ───────────────────────────────────────────────
-
-/**
- * Resend API를 사용하여 이메일 발송
- * 실패 시 에러를 throw하지 않고 결과를 반환하여 호출자가 처리하도록 함
- */
-async function sendEmail({ to, subject, html }: SendEmailParams): Promise<{ success: boolean; error?: string }> {
+}): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-
-  // Resend API가 설정되지 않은 경우 → 실패로 처리하지만 에러는 throw하지 않음
   if (!apiKey) {
-    console.warn("[Notification] RESEND_API_KEY not configured, skipping email send");
-    return { success: false, error: "RESEND_API_KEY not configured" };
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+
+  const from = process.env.RESEND_FROM_EMAIL ?? "Empire LMS <notifications@empire-lms.com>";
+
+  const response = await fetch(RESEND_EMAILS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: input.subject,
+      html: input.html,
+    }),
+  });
+
+  if (!response.ok) {
+    const responseBody = await response.text();
+    throw new Error(
+      `Resend request failed (${response.status}): ${responseBody.slice(0, 500)}`
+    );
+  }
+}
+
+async function markEmailAsSkipped(notificationId: string, reason: string): Promise<Notification> {
+  return db.notification.update({
+    where: { id: notificationId },
+    data: {
+      emailStatus: NotificationEmailStatus.SKIPPED,
+      emailError: reason,
+      emailLastAttemptAt: new Date(),
+      nextEmailRetryAt: null,
+    },
+  });
+}
+
+async function markEmailSuccess(notificationId: string): Promise<Notification> {
+  const now = new Date();
+
+  return db.notification.update({
+    where: { id: notificationId },
+    data: {
+      emailStatus: NotificationEmailStatus.SENT,
+      emailError: null,
+      emailSentAt: now,
+      emailLastAttemptAt: now,
+      nextEmailRetryAt: null,
+    },
+  });
+}
+
+async function markEmailFailure(
+  notificationId: string,
+  currentRetryCount: number,
+  errorMessage: string
+): Promise<Notification> {
+  const nextRetryCount = currentRetryCount + 1;
+  const nextRetryAt = computeNextRetryAt(nextRetryCount);
+
+  return db.notification.update({
+    where: { id: notificationId },
+    data: {
+      emailStatus: nextRetryAt
+        ? NotificationEmailStatus.RETRY_PENDING
+        : NotificationEmailStatus.FAILED,
+      emailError: errorMessage,
+      emailRetryCount: nextRetryCount,
+      emailLastAttemptAt: new Date(),
+      nextEmailRetryAt: nextRetryAt,
+    },
+  });
+}
+
+async function deliverNotificationEmail(input: {
+  notificationId: string;
+  email: string | null | undefined;
+  title: string;
+  message: string;
+  linkUrl?: string | null;
+  retryCount: number;
+}): Promise<Notification> {
+  const normalizedEmail = normalizeOptionalString(input.email);
+
+  if (!normalizedEmail) {
+    return markEmailAsSkipped(input.notificationId, "No recipient email address");
   }
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    await sendNotificationEmailViaResend({
+      to: normalizedEmail,
+      subject: `[Empire LMS] ${input.title}`,
+      html: buildNotificationEmailHtml(input.title, input.message, input.linkUrl),
+    });
+
+    return markEmailSuccess(input.notificationId);
+  } catch (error) {
+    return markEmailFailure(
+      input.notificationId,
+      input.retryCount,
+      sanitizeErrorMessage(error)
+    );
+  }
+}
+
+function normalizeIdempotencyKey(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  return trimmed.length > MAX_IDEMPOTENCY_KEY_LENGTH
+    ? trimmed.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH)
+    : trimmed;
+}
+
+export function buildNotificationIdempotencyKey(
+  ...parts: Array<string | number | null | undefined>
+): string | undefined {
+  const normalized = parts
+    .map((part) => (part === null || part === undefined ? "" : String(part).trim()))
+    .filter((part) => part.length > 0);
+
+  if (normalized.length === 0) {
+    return undefined;
+  }
+
+  return normalizeIdempotencyKey(normalized.join(":"));
+}
+
+export async function createNotification(input: CreateNotificationInput): Promise<Notification> {
+  const parsed = createNotificationSchema.parse(input);
+
+  const metadata = serializeMetadata(parsed.metadata);
+  const shouldSendEmail = parsed.sendEmail ?? true;
+  const recipientEmail = normalizeOptionalString(parsed.recipient.email);
+  const idempotencyKey = normalizeIdempotencyKey(parsed.idempotencyKey);
+
+  let notification: Notification;
+
+  try {
+    notification = await db.notification.create({
+      data: {
+        userId: parsed.recipient.userId,
+        eventType: parsed.eventType,
+        title: parsed.title,
+        message: parsed.message,
+        linkUrl: normalizeOptionalString(parsed.linkUrl),
+        metadata,
+        idempotencyKey,
+        courseId: normalizeOptionalString(parsed.courseId),
+        lessonId: normalizeOptionalString(parsed.lessonId),
+        emailStatus:
+          shouldSendEmail && recipientEmail
+            ? NotificationEmailStatus.PENDING
+            : NotificationEmailStatus.SKIPPED,
+        emailError:
+          shouldSendEmail && recipientEmail ? null : "Email disabled or recipient email missing",
       },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "noreply@empirelms.com",
-        to,
-        subject,
-        html,
-      }),
     });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      return { success: false, error: `Resend API error: ${response.status} ${errorText}` };
-    }
-
-    const data = await response.json();
-    console.log("[Notification] Email sent successfully:", data.id);
-    return { success: true };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("[Notification] Email send error:", errorMessage);
-    return { success: false, error: errorMessage };
-  }
-}
-
-// ─── Notification HTML Template ───────────────────────────────────────────
-
-function getNotificationHtml(type: NotificationType, title: string, message: string): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-  const typeLabels: Record<NotificationType, string> = {
-    ENROLLMENT_COMPLETED: "수강신청 완료",
-    PAYMENT_SUCCEEDED: "결제 완료",
-    LESSON_CREATED: "새 레슨 등록",
-    STUDENT_ENROLLED: "새 수강생 등록",
-    LESSON_COMPLETED: "레슨 완료",
-    COURSE_PUBLISHED: "새 강의 게시",
-    INVITE_SENT: "초대장 발송",
-    INVITE_ACCEPTED: "초대 수락",
-  };
-
-  const typeLabel = typeLabels[type] || type;
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center; }
-    .header h1 { color: white; margin: 0; font-size: 24px; }
-    .badge { display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 10px; }
-    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-    .title { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #111827; }
-    .message { color: #4b5563; margin-bottom: 20px; }
-    .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .footer { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Empire LMS</h1>
-      <span class="badge">${typeLabel}</span>
-    </div>
-    <div class="content">
-      <h2 class="title">${title}</h2>
-      <p class="message">${message}</p>
-      <a href="${appUrl}" class="button">대시보드로 이동</a>
-    </div>
-    <div class="footer">
-      <p>이 알림을 원하지 않으시다면 무시하셔도 됩니다.</p>
-    </div>
-  </div>
-</body>
-</html>
-  `.trim();
-}
-
-// ─── Core Notification Functions ───────────────────────────────────────────
-
-/**
- * 알림 생성 + 이메일 발송 (원자적이지 않음 - 이메일 실패해도 DB 저장)
- *
- * 설계 의사결정:
- * - DB 저장과 이메일 발송을 별도 트랜잭션으로 처리
- * - 이메일 실패 시에도 알림은 DB에 저장됨 (emailStatus: FAILED)
- * - 나중에 백그라운드 잡으로 FAILED 상태 재시도 가능
- */
-export async function createNotification(
-  params: CreateNotificationParams
-): Promise<NotificationResult> {
-  const {
-    userId,
-    type,
-    title,
-    message,
-    courseId = null,
-    lessonId = null,
-    enrollmentId = null,
-    metadata = null,
-  } = params;
-
-  // 1. 먼저 DB에 알림 저장 (항상 성공해야 함)
-  const notification = await db.notification.create({
-    data: {
-      userId,
-      type,
-      title,
-      message,
-      courseId,
-      lessonId,
-      enrollmentId,
-      metadata: metadata ? JSON.stringify(metadata) : null,
-      emailStatus: "PENDING",
-    },
-  });
-
-  // 2. 사용자 정보 조회하여 이메일 발송 시도
-  let emailStatus: NotificationStatus = "FAILED";
-  let emailError: string | undefined;
-
-  try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { email: true, name: true },
-    });
-
-    if (user?.email) {
-      const html = getNotificationHtml(type, title, message);
-      const emailResult = await sendEmail({
-        to: user.email,
-        subject: `[Empire LMS] ${title}`,
-        html,
+    if (isUniqueConstraintError(error) && idempotencyKey) {
+      const existing = await db.notification.findUnique({
+        where: { idempotencyKey },
       });
-
-      if (emailResult.success) {
-        emailStatus = "SENT";
-      } else {
-        emailError = emailResult.error;
+      if (existing) {
+        return existing;
       }
-    } else {
-      emailError = "User email not found";
     }
-  } catch (error) {
-    emailError = error instanceof Error ? error.message : "Unknown email error";
-    console.error("[Notification] Error sending email:", emailError);
+
+    throw error;
   }
 
-  // 3. 이메일 발송 결과 업데이트
-  const updatedNotification = await db.notification.update({
-    where: { id: notification.id },
-    data: {
-      emailStatus,
-      // 실패 시 에러 메시지를 metadata에 저장
-      ...(emailError && {
-        metadata: JSON.stringify({
-          ...(metadata || {}),
-          emailError,
-          emailFailedAt: new Date().toISOString(),
-        }),
-      }),
-    },
-  });
+  if (!shouldSendEmail || !recipientEmail) {
+    return notification;
+  }
 
-  return {
-    id: updatedNotification.id,
-    userId: updatedNotification.userId,
-    emailStatus: updatedNotification.emailStatus,
-    emailError,
-  };
+  return deliverNotificationEmail({
+    notificationId: notification.id,
+    email: recipientEmail,
+    title: notification.title,
+    message: notification.message,
+    linkUrl: notification.linkUrl,
+    retryCount: notification.emailRetryCount,
+  });
 }
 
-/**
- * 대량 알림 생성 (배치 처리)
- * 각 알림은 독립적으로 처리되어 하나의 실패가 전체를 막지 않음
- */
-export async function createBulkNotifications(
-  paramsArray: CreateNotificationParams[]
-): Promise<NotificationResult[]> {
-  // 병렬 처리로 성능 최적화
-  const results = await Promise.allSettled(
-    paramsArray.map((params) => createNotification(params))
+export async function createNotificationsForRecipients(input: {
+  recipients: NotificationRecipient[];
+  eventType: NotificationEventType;
+  title: string;
+  message: string;
+  linkUrl?: string | null;
+  metadata?: z.infer<typeof notificationMetadataSchema> | null;
+  courseId?: string | null;
+  lessonId?: string | null;
+  idempotencyKeyPrefix?: string;
+  sendEmail?: boolean;
+}): Promise<Notification[]> {
+  const notifications = await Promise.allSettled(
+    input.recipients.map((recipient) =>
+      createNotification({
+        recipient,
+        eventType: input.eventType,
+        title: input.title,
+        message: input.message,
+        linkUrl: input.linkUrl,
+        metadata: input.metadata,
+        courseId: input.courseId,
+        lessonId: input.lessonId,
+        idempotencyKey: input.idempotencyKeyPrefix
+          ? buildNotificationIdempotencyKey(input.idempotencyKeyPrefix, recipient.userId)
+          : undefined,
+        sendEmail: input.sendEmail,
+      })
+    )
   );
 
-  return results.map((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value;
+  return notifications.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : []
+  );
+}
+
+export async function retryFailedNotificationEmails(
+  input: RetryFailedNotificationEmailsInput = {}
+): Promise<RetryNotificationResult> {
+  const parsed = retryFailedNotificationEmailsSchema.parse(input);
+  const now = new Date();
+  const limit = parsed.limit ?? 25;
+
+  const notifications = await db.notification.findMany({
+    where: {
+      OR: [
+        { emailStatus: NotificationEmailStatus.PENDING },
+        {
+          emailStatus: NotificationEmailStatus.RETRY_PENDING,
+          nextEmailRetryAt: {
+            lte: now,
+          },
+        },
+      ],
+    },
+    include: {
+      user: {
+        select: {
+          email: true,
+        },
+      },
+    },
+    orderBy: [{ nextEmailRetryAt: "asc" }, { createdAt: "asc" }],
+    take: limit,
+  });
+
+  let sent = 0;
+  let retried = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const notification of notifications) {
+    const updated = await deliverNotificationEmail({
+      notificationId: notification.id,
+      email: notification.user.email,
+      title: notification.title,
+      message: notification.message,
+      linkUrl: notification.linkUrl,
+      retryCount: notification.emailRetryCount,
+    });
+
+    if (updated.emailStatus === NotificationEmailStatus.SENT) {
+      sent += 1;
+      continue;
     }
-    // rejected인 경우 (DB 저장 자체가 실패한罕见 케이스)
-    console.error(`[Notification] Failed to create notification for user ${paramsArray[index].userId}:`, result.reason);
+
+    if (updated.emailStatus === NotificationEmailStatus.RETRY_PENDING) {
+      retried += 1;
+      continue;
+    }
+
+    if (updated.emailStatus === NotificationEmailStatus.SKIPPED) {
+      skipped += 1;
+      continue;
+    }
+
+    failed += 1;
+  }
+
+  return {
+    processed: notifications.length,
+    sent,
+    retried,
+    failed,
+    skipped,
+  };
+}
+
+export async function getNotificationRecipientsByUserIds(
+  userIds: string[]
+): Promise<NotificationRecipient[]> {
+  const normalizedUserIds = Array.from(
+    new Set(userIds.map((id) => id.trim()).filter((id) => id.length > 0))
+  );
+
+  if (normalizedUserIds.length === 0) {
+    return [];
+  }
+
+  const users = await db.user.findMany({
+    where: {
+      id: {
+        in: normalizedUserIds,
+      },
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+    },
+  });
+
+  return users.map((user) => ({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  }));
+}
+
+export function consumeNotificationRateLimit(input: RateLimitInput): RateLimitResult {
+  const now = Date.now();
+  const bucket = notificationRateLimitStore.get(input.key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    notificationRateLimitStore.set(input.key, {
+      count: 1,
+      resetAt: now + input.windowMs,
+    });
+
     return {
-      id: "",
-      userId: paramsArray[index].userId,
-      emailStatus: "FAILED",
-      emailError: "Failed to create notification in DB",
+      allowed: true,
+      remaining: Math.max(input.limit - 1, 0),
+      resetAt: now + input.windowMs,
     };
-  });
+  }
+
+  if (bucket.count >= input.limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: bucket.resetAt,
+    };
+  }
+
+  bucket.count += 1;
+  notificationRateLimitStore.set(input.key, bucket);
+
+  return {
+    allowed: true,
+    remaining: Math.max(input.limit - bucket.count, 0),
+    resetAt: bucket.resetAt,
+  };
 }
 
-// ─── Notification Trigger Functions (비즈니스 로직) ───────────────────────
-
-/**
- * 수강신청 완료 알림 (학생에게)
- */
-export async function notifyEnrollmentCompleted(params: {
-  userId: string;
-  courseTitle: string;
-  courseId: string;
-  enrollmentId: string;
-}): Promise<NotificationResult> {
-  return createNotification({
-    userId: params.userId,
-    type: "ENROLLMENT_COMPLETED",
-    title: "수강신청이 완료되었습니다",
-    message: `${params.courseTitle} 강의의 수강신청이 완료되었습니다. 바로 학습을 시작할 수 있습니다.`,
-    courseId: params.courseId,
-    enrollmentId: params.enrollmentId,
-  });
+export function getRetryAfterSeconds(resetAtMs: number): number {
+  return Math.max(Math.ceil((resetAtMs - Date.now()) / 1000), 1);
 }
-
-/**
- * 결제 완료 알림 (학생에게)
- */
-export async function notifyPaymentSucceeded(params: {
-  userId: string;
-  courseTitle: string;
-  amount: number;
-  currency: string;
-  courseId: string;
-}): Promise<NotificationResult> {
-  return createNotification({
-    userId: params.userId,
-    type: "PAYMENT_SUCCEEDED",
-    title: "결제가 완료되었습니다",
-    message: `${params.courseTitle} 강의 결제 ${params.amount} ${params.currency}이(가) 완료되었습니다.`,
-    courseId: params.courseId,
-  });
-}
-
-/**
- * 새 레슨 등록 알림 (수강생들에게)
- */
-export async function notifyLessonCreated(params: {
-  courseTitle: string;
-  lessonTitle: string;
-  courseId: string;
-  lessonId: string;
-  studentIds: string[];
-}): Promise<NotificationResult[]> {
-  const notifications = params.studentIds.map((userId) => ({
-    userId,
-    type: "LESSON_CREATED" as const,
-    title: "새로운 레슨이 등록되었습니다",
-    message: `${params.courseTitle} 강의에 "${params.lessonTitle}" 레슨이新增되었습니다.`,
-    courseId: params.courseId,
-    lessonId: params.lessonId,
-  }));
-
-  return createBulkNotifications(notifications);
-}
-
-/**
- * 새 수강생 등록 알림 (강사에게)
- */
-export async function notifyStudentEnrolled(params: {
-  teacherId: string;
-  studentName: string;
-  courseTitle: string;
-  courseId: string;
-  enrollmentId: string;
-}): Promise<NotificationResult> {
-  return createNotification({
-    userId: params.teacherId,
-    type: "STUDENT_ENROLLED",
-    title: "새로운 수강생이 등록되었습니다",
-    message: `${params.studentName} 님이 "${params.courseTitle}" 강의에 수강신청했습니다.`,
-    courseId: params.courseId,
-    enrollmentId: params.enrollmentId,
-  });
-}
-
-/**
- * 레슨 완료 알림 (학생/학부모/강사)
- */
-export async function notifyLessonCompleted(params: {
-  userIds: string[];
-  studentName: string;
-  lessonTitle: string;
-  courseTitle: string;
-  courseId: string;
-  lessonId: string;
-}): Promise<NotificationResult[]> {
-  const notifications = params.userIds.map((userId) => ({
-    userId,
-    type: "LESSON_COMPLETED" as const,
-    title: "레슨을 완료했습니다",
-    message: `${params.studentName} 님이 "${params.courseTitle}" 강의의 "${params.lessonTitle}" 레슨을 완료했습니다.`,
-    courseId: params.courseId,
-    lessonId: params.lessonId,
-  }));
-
-  return createBulkNotifications(notifications);
-}
-
-/**
- * 강의 게시 알림 (학생들에게)
- */
-export async function notifyCoursePublished(params: {
-  courseTitle: string;
-  courseId: string;
-  studentIds: string[];
-}): Promise<NotificationResult[]> {
-  const notifications = params.studentIds.map((userId) => ({
-    userId,
-    type: "COURSE_PUBLISHED" as const,
-    title: "새로운 강의가 게시되었습니다",
-    message: `"${params.courseTitle}" 강의가 새로 게시되었습니다. 지금 바로 확인해보세요!`,
-    courseId: params.courseId,
-  }));
-
-  return createBulkNotifications(notifications);
-}
-
-// ─── Types for export ───────────────────────────────────────────────────────
-
-export type { NotificationType, NotificationStatus };

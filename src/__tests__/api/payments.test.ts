@@ -14,6 +14,9 @@ vi.mock("@/lib/db", () => ({
     course: {
       findUnique: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
     enrollment: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -33,6 +36,13 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/payment", () => ({
   getPaymentProvider: vi.fn(),
   getStripeProvider: vi.fn(),
+}));
+
+vi.mock("@/lib/notification", () => ({
+  buildNotificationIdempotencyKey: vi.fn((...parts: Array<string | number>) =>
+    parts.join(":")
+  ),
+  createNotification: vi.fn().mockResolvedValue(null),
 }));
 
 describe("Payments API - Checkout", () => {
@@ -255,6 +265,21 @@ describe("Payments API - Webhook", () => {
     };
     vi.mocked(getStripeProvider).mockReturnValue(mockStripeProvider as any);
 
+    vi.mocked(db.user.findUnique).mockResolvedValue({
+      id: "student1",
+      email: "student@example.com",
+      name: "Student",
+    } as any);
+    vi.mocked(db.course.findUnique).mockResolvedValue({
+      id: "course1",
+      title: "Course 1",
+      teacherId: "teacher1",
+      teacher: {
+        id: "teacher1",
+        email: "teacher@example.com",
+        name: "Teacher",
+      },
+    } as any);
     vi.mocked(db.enrollment.findUnique).mockResolvedValue(null);
     vi.mocked(db.enrollment.create).mockResolvedValue({ id: "enroll1" } as any);
     vi.mocked(db.paymentTransaction.updateMany).mockResolvedValue({ count: 1 } as any);

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { NotificationEventType } from "@prisma/client";
 import { getSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types";
+import { createNotificationsForRecipients } from "@/lib/notification";
 
 // GET /api/courses - List all courses (with optional filtering)
 export async function GET(request: NextRequest) {
@@ -97,6 +99,46 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    if (course.isPublished) {
+      const guardians = await db.user.findMany({
+        where: {
+          organizationId: course.organizationId,
+          role: "GUARDIAN",
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      const guardianRecipients = guardians.map((guardian) => ({
+        userId: guardian.id,
+        email: guardian.email,
+        name: guardian.name,
+        role: guardian.role,
+      }));
+
+      if (guardianRecipients.length > 0) {
+        await createNotificationsForRecipients({
+          recipients: guardianRecipients,
+          eventType: NotificationEventType.GUARDIAN_NEW_COURSE_REGISTERED,
+          title: "새 강의가 등록되었습니다",
+          message: `${course.title} 강의가 새롭게 등록되었습니다.`,
+          courseId: course.id,
+          linkUrl: `/courses/${course.id}`,
+          metadata: {
+            courseId: course.id,
+            organizationId: course.organizationId,
+            source: "course-create",
+          },
+          idempotencyKeyPrefix: `course-create:${course.id}:guardian`,
+        });
+      }
+    }
 
     return NextResponse.json(
       { data: course, error: null },

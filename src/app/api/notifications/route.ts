@@ -1,23 +1,21 @@
-/**
- * Notifications API
- *
- * 보안 강화:
- * - 항상 세션에서 userId를 가져와 사용 (쿼리 파라미터/바디에서 userId 직접 수신 거부)
- * - 타인의 알림 접근 시 403 반환
- */
-
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/get-session";
+import { z } from "zod/v4";
 import { db } from "@/lib/db";
-import type { NotificationType, NotificationStatus } from "@prisma/client";
+import { getSession } from "@/lib/get-session";
+import {
+  consumeNotificationRateLimit,
+  getRetryAfterSeconds,
+} from "@/lib/notification";
 
-/**
- * GET /api/notifications
- *
- * 현재 로그인한 사용자의 알림 목록 조회
- * - 보안: 세션의 userId로만 필터링 (IDOR 방지)
- * - 쿼리 파라미터: isRead, limit, offset, type
- */
+const notificationsQuerySchema = z.object({
+  cursor: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  status: z.enum(["all", "read", "unread"]).default("all"),
+});
+
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -32,114 +30,109 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     const searchParams = request.nextUrl.searchParams;
 
-    // 쿼리 파라미터 파싱
-    const isRead = searchParams.get("isRead");
-    const type = searchParams.get("type") as NotificationType | null;
-    const limit = parseInt(searchParams.get("limit") ?? "20", 10);
-    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
-    const emailStatus = searchParams.get("emailStatus") as NotificationStatus | null;
-
-    // 유효성 검사
-    if (limit < 1 || limit > 100) {
+    if (searchParams.has("userId")) {
       return NextResponse.json(
-        { data: null, error: "limit must be between 1 and 100" },
+        { data: null, error: "Filtering by userId is not allowed" },
         { status: 400 }
       );
     }
 
-    if (offset < 0) {
+    const limitResult = consumeNotificationRateLimit({
+      key: `notifications:get:${userId}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
+
+    if (!limitResult.allowed) {
       return NextResponse.json(
-        { data: null, error: "offset must be non-negative" },
+        {
+          data: null,
+          error: "Too many requests",
+          meta: {
+            retryAfter: getRetryAfterSeconds(limitResult.resetAt),
+          },
+        },
+        { status: 429 }
+      );
+    }
+
+    const queryParseResult = notificationsQuerySchema.safeParse({
+      cursor: searchParams.get("cursor") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+    });
+
+    if (!queryParseResult.success) {
+      return NextResponse.json(
+        {
+          data: null,
+          error: queryParseResult.error.issues[0]?.message ?? "Invalid query",
+        },
         { status: 400 }
       );
     }
 
-    // WHERE 조건 구성 (항상 userId로 필터링 - 보안 핵심)
-    const where: Record<string, unknown> = { userId };
+    const query = queryParseResult.data;
 
-    if (isRead === "true") {
+    const where: Prisma.NotificationWhereInput = {
+      userId,
+    };
+
+    if (query.status === "read") {
       where.isRead = true;
-    } else if (isRead === "false") {
+    } else if (query.status === "unread") {
       where.isRead = false;
     }
 
-    if (type) {
-      const validTypes: NotificationType[] = [
-        "ENROLLMENT_COMPLETED",
-        "PAYMENT_SUCCEEDED",
-        "LESSON_CREATED",
-        "STUDENT_ENROLLED",
-        "LESSON_COMPLETED",
-        "COURSE_PUBLISHED",
-        "INVITE_SENT",
-        "INVITE_ACCEPTED",
-      ];
-      if (!validTypes.includes(type)) {
-        return NextResponse.json(
-          { data: null, error: `Invalid type: ${type}` },
-          { status: 400 }
-        );
-      }
-      where.type = type;
-    }
-
-    if (emailStatus) {
-      const validStatuses: NotificationStatus[] = ["PENDING", "SENT", "FAILED"];
-      if (!validStatuses.includes(emailStatus)) {
-        return NextResponse.json(
-          { data: null, error: `Invalid emailStatus: ${emailStatus}` },
-          { status: 400 }
-        );
-      }
-      where.emailStatus = emailStatus;
-    }
-
-    // 알림 목록 조회
-    const [notifications, total] = await Promise.all([
+    const [notificationsPage, unreadCount] = await Promise.all([
       db.notification.findMany({
         where,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          message: true,
-          emailStatus: true,
-          isRead: true,
-          readAt: true,
-          courseId: true,
-          lessonId: true,
-          enrollmentId: true,
-          metadata: true,
-          createdAt: true,
-          updatedAt: true,
-          // userId는 선택적으로 포함 (클라이언트에서 자신의 알림인지 확인용)
-          userId: true,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: query.limit + 1,
+        ...(query.cursor
+          ? {
+              cursor: {
+                id: query.cursor,
+              },
+              skip: 1,
+            }
+          : {}),
+      }),
+      db.notification.count({
+        where: {
+          userId,
+          isRead: false,
         },
       }),
-      db.notification.count({ where }),
     ]);
 
-    // 안읽은 알림 수 조회
-    const unreadCount = await db.notification.count({
-      where: { userId, isRead: false },
-    });
+    const hasMore = notificationsPage.length > query.limit;
+    const notifications = hasMore
+      ? notificationsPage.slice(0, query.limit)
+      : notificationsPage;
 
-    return NextResponse.json({
-      data: notifications,
-      error: null,
-      meta: {
-        total,
-        unreadCount,
-        limit,
-        offset,
-        hasMore: offset + limit < total,
+    const nextCursor = hasMore ? notifications[notifications.length - 1]?.id ?? null : null;
+
+    return NextResponse.json(
+      {
+        data: notifications,
+        error: null,
+        meta: {
+          hasMore,
+          nextCursor,
+          unreadCount,
+          remaining: limitResult.remaining,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching notifications:", error);
+
     return NextResponse.json(
       { data: null, error: "Failed to fetch notifications" },
       { status: 500 }

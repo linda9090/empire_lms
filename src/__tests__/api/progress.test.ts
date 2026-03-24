@@ -29,7 +29,19 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       count: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
   },
+}));
+
+vi.mock("@/lib/notification", () => ({
+  buildNotificationIdempotencyKey: vi.fn((...parts: Array<string | number>) =>
+    parts.join(":")
+  ),
+  createNotification: vi.fn().mockResolvedValue(null),
+  createNotificationsForRecipients: vi.fn().mockResolvedValue([]),
 }));
 
 describe("Progress API - POST /api/progress", () => {
