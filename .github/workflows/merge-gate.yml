@@ -55,6 +55,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prisma generate
+        run: |
+          PRISMA_CONFIG_FLAG=""
+          if [ -f prisma/prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma/prisma.config.ts"
+          elif [ -f prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma.config.ts"
+          fi
+
+          npx prisma generate ${PRISMA_CONFIG_FLAG}
+
       - name: Unit tests
         run: npm run test
 
