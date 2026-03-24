@@ -10,6 +10,8 @@ export type ActivityType =
   | "HTML"
   | "LTI";
 
+export type LessonType = "VIDEO" | "PDF" | "TEXT";
+
 export type XApiVerb =
   | "started"
   | "completed"
