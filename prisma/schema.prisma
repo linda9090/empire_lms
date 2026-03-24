@@ -30,6 +30,13 @@ enum LessonType {
   TEXT
 }
 
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DROPPED
+}
+
 enum XApiVerb {
   started
   completed
@@ -231,12 +238,14 @@ model Course {
 }
 
 model Enrollment {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
-  courseId     String    @map("course_id")
-  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
-  completedAt DateTime? @map("completed_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id          String            @id @default(cuid())
+  userId      String            @map("user_id")
+  courseId     String            @map("course_id")
+  status      EnrollmentStatus  @default(ACTIVE)
+  enrolledAt  DateTime          @default(now()) @map("enrolled_at")
+  completedAt DateTime?         @map("completed_at")
+  cancelledAt DateTime?         @map("cancelled_at")
+  deletedAt   DateTime?         @map("deleted_at")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
