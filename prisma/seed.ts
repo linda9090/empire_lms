@@ -25,13 +25,7 @@ async function hashPassword(password: string): Promise<string> {
   const N = 512; // Lower CPU/memory cost
   const r = 8; // block size
   const p = 1; // parallelization
-
-  const derivedKey = (await scryptAsync(password, salt, keylen, {
-    N,
-    r,
-    p,
-  })) as Buffer;
-
+  const derivedKey = (await scryptAsync(password, salt, keylen)) as Buffer;
   return `${salt}:${derivedKey.toString("base64")}`;
 }
 
