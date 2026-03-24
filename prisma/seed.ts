@@ -19,10 +19,10 @@ const db = prismaClientSingleton();
  * Hash password using scrypt with lower params for compatibility
  * Format: salt:hash (base64 encoded)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("base64");
   const keylen = 32;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const N = 512; // Lower CPU/memory cost - reserved for future scrypt implementation
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const r = 8; // block size - reserved for future scrypt implementation
