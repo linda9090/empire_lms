@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use user's organization if available, otherwise create without organization
-    const organizationId = session.user.organizationId;
+    const organizationId = session.user.organizationId ?? undefined;
 
     const course = await db.course.create({
       data: {
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         imageUrl: imageUrl?.trim() || null,
         price: price !== undefined ? Number(price) : null,
         isPublished: isPublished === true,
-        ...(organizationId ? { organizationId } : {}),
+        organizationId,
       },
       include: {
         organization: {
