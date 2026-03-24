@@ -73,8 +73,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use user's organization if available, otherwise create without organization
-    const organizationId = session.user.organizationId ?? undefined;
+    // Course requires an organization
+    if (!session.user.organizationId) {
+      return NextResponse.json(
+        { data: null, error: "User must belong to an organization to create courses" },
+        { status: 400 }
+      );
+    }
 
     const course = await db.course.create({
       data: {
@@ -83,7 +88,7 @@ export async function POST(request: NextRequest) {
         imageUrl: imageUrl?.trim() || null,
         price: price !== undefined ? Number(price) : null,
         isPublished: isPublished === true,
-        organizationId,
+        organizationId: session.user.organizationId,
       },
       include: {
         organization: {
