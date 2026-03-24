@@ -70,20 +70,22 @@ export async function GET(
     }
 
     const [totalLessons, completedLessons] = await Promise.all([
-      db.activity.count({
+      db.lesson.count({
         where: {
-          courseId,
+          section: {
+            courseId,
+          },
           deletedAt: null,
-          isPublished: true,
         },
       }),
       db.progress.count({
         where: {
           userId,
-          activity: {
-            courseId,
+          lesson: {
+            section: {
+              courseId,
+            },
             deletedAt: null,
-            isPublished: true,
           },
         },
       }),
