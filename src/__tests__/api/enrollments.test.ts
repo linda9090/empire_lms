@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/enrollments/route";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Mock dependencies
 vi.mock("@/lib/get-session", () => ({
   getSession: vi.fn(),

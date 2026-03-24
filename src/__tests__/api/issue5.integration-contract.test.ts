@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { GET as GET_COURSES, POST as POST_COURSE } from "@/app/api/courses/route";
 import { GET as GET_ENROLLMENTS, POST as POST_ENROLLMENT } from "@/app/api/enrollments/route";
 import { db } from "@/lib/db";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSession } from "@/lib/get-session";
 
 vi.mock("@/lib/get-session", () => ({

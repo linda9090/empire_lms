@@ -22,9 +22,12 @@ const db = prismaClientSingleton();
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("base64");
   const keylen = 32;
-  const N = 512; // Lower CPU/memory cost
-  const r = 8; // block size
-  const p = 1; // parallelization
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const N = 512; // Lower CPU/memory cost - reserved for future scrypt implementation
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const r = 8; // block size - reserved for future scrypt implementation
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const p = 1; // parallelization - reserved for future scrypt implementation
   const derivedKey = (await scryptAsync(password, salt, keylen)) as Buffer;
   return `${salt}:${derivedKey.toString("base64")}`;
 }
