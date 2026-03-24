@@ -12,7 +12,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "verify:issue5:security": "bash ./scripts/devsecops/verify-issue5-security.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1015.0",

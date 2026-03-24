@@ -98,6 +98,13 @@ describe("Courses API - POST /api/courses", () => {
 
     expect(response.status).toBe(201);
     expect(data.data).toEqual(mockCourse);
+    expect(db.course.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teacherId: "user1",
+        }),
+      })
+    );
   });
 
   it("should create course when authenticated as ADMIN", async () => {
@@ -124,6 +131,13 @@ describe("Courses API - POST /api/courses", () => {
     const response = await POST(request as any);
 
     expect(response.status).toBe(201);
+    expect(db.course.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teacherId: "user1",
+        }),
+      })
+    );
   });
 
   it("should return 401 when not authenticated", async () => {
@@ -256,7 +270,7 @@ describe("Courses API - PUT /api/courses/[id]", () => {
       },
     } as any);
 
-    const existingCourse = { id: "1", title: "Old Title" };
+    const existingCourse = { id: "1", title: "Old Title", teacherId: "user1" };
     vi.mocked(db.course.findFirst).mockResolvedValue(existingCourse as any);
 
     const updatedCourse = { id: "1", title: "New Title" };
@@ -314,6 +328,30 @@ describe("Courses API - PUT /api/courses/[id]", () => {
     expect(data.error).toContain("Forbidden");
   });
 
+  it("should return 403 when TEACHER tries to update another teacher's course", async () => {
+    const { getSession } = await import("@/lib/get-session");
+    const { db } = await import("@/lib/db");
+
+    vi.mocked(getSession).mockResolvedValue({
+      user: { id: "teacher1", role: "TEACHER" },
+    } as any);
+
+    const existingCourse = { id: "1", title: "Course", teacherId: "teacher2" };
+    vi.mocked(db.course.findFirst).mockResolvedValue(existingCourse as any);
+
+    const request = new NextRequest("http://localhost:3000/api/courses/1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "New Title" }),
+    });
+    const response = await PUT(request as any, {
+      params: Promise.resolve({ id: "1" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(data.error).toBe("Forbidden: You can only update your own courses");
+  });
+
   it("should return 400 for invalid title update", async () => {
     const { getSession } = await import("@/lib/get-session");
     const { db } = await import("@/lib/db");
@@ -322,7 +360,7 @@ describe("Courses API - PUT /api/courses/[id]", () => {
       user: { id: "user1", role: "TEACHER" },
     } as any);
 
-    const existingCourse = { id: "1", title: "Course" };
+    const existingCourse = { id: "1", title: "Course", teacherId: "user1" };
     vi.mocked(db.course.findFirst).mockResolvedValue(existingCourse as any);
 
     const request = new NextRequest("http://localhost:3000/api/courses/1", {
@@ -357,7 +395,7 @@ describe("Courses API - DELETE /api/courses/[id]", () => {
       },
     } as any);
 
-    const existingCourse = { id: "1", title: "Course" };
+    const existingCourse = { id: "1", title: "Course", teacherId: "user1" };
     vi.mocked(db.course.findFirst).mockResolvedValue(existingCourse as any);
     vi.mocked(db.course.update).mockResolvedValue({ ...existingCourse, deletedAt: new Date() } as any);
 
@@ -431,5 +469,28 @@ describe("Courses API - DELETE /api/courses/[id]", () => {
 
     expect(response.status).toBe(403);
     expect(data.error).toContain("Forbidden");
+  });
+
+  it("should return 403 when TEACHER tries to delete another teacher's course", async () => {
+    const { getSession } = await import("@/lib/get-session");
+    const { db } = await import("@/lib/db");
+
+    vi.mocked(getSession).mockResolvedValue({
+      user: { id: "teacher1", role: "TEACHER" },
+    } as any);
+
+    const existingCourse = { id: "1", title: "Course", teacherId: "teacher2" };
+    vi.mocked(db.course.findFirst).mockResolvedValue(existingCourse as any);
+
+    const request = new NextRequest("http://localhost:3000/api/courses/1", {
+      method: "DELETE",
+    });
+    const response = await DELETE(request as any, {
+      params: Promise.resolve({ id: "1" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(data.error).toBe("Forbidden: You can only delete your own courses");
   });
 });
