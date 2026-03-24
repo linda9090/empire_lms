@@ -30,7 +30,6 @@ async function hashPassword(password: string): Promise<string> {
     N,
     r,
     p,
-    maxmem: 32 * 1024 * 1024, // 32MB limit
   })) as Buffer;
 
   return `${salt}:${derivedKey.toString("base64")}`;
