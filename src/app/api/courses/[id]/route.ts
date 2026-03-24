@@ -61,7 +61,7 @@ export async function PUT(
     // Check if course exists and get ownership info
     const existingCourse = await db.course.findFirst({
       where: { id, deletedAt: null },
-      include: { organization: true },
+      select: { id: true, teacherId: true },
     });
 
     if (!existingCourse) {
@@ -71,12 +71,16 @@ export async function PUT(
       );
     }
 
-    // Authorization: Only ADMIN or course creator (via organization) can update
-    // For MVP, we'll allow any TEACHER or ADMIN to update any course
-    // In production, you'd want to track course.creatorId
     if (userRole !== "TEACHER" && userRole !== "ADMIN") {
       return NextResponse.json(
         { data: null, error: "Forbidden: Only teachers and admins can update courses" },
+        { status: 403 }
+      );
+    }
+
+    if (userRole === "TEACHER" && existingCourse.teacherId !== session.user.id) {
+      return NextResponse.json(
+        { data: null, error: "Forbidden: You can only update your own courses" },
         { status: 403 }
       );
     }
@@ -128,7 +132,7 @@ export async function PATCH(
 
 // DELETE /api/courses/[id] - Soft delete a course (owner or ADMIN only)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -144,9 +148,10 @@ export async function DELETE(
     const { id } = await params;
     const userRole = session.user.role as UserRole;
 
-    // Check if course exists
+    // Check if course exists and get ownership info
     const existingCourse = await db.course.findFirst({
       where: { id, deletedAt: null },
+      select: { id: true, teacherId: true },
     });
 
     if (!existingCourse) {
@@ -159,6 +164,13 @@ export async function DELETE(
     if (userRole !== "TEACHER" && userRole !== "ADMIN") {
       return NextResponse.json(
         { data: null, error: "Forbidden: Only teachers and admins can delete courses" },
+        { status: 403 }
+      );
+    }
+
+    if (userRole === "TEACHER" && existingCourse.teacherId !== session.user.id) {
+      return NextResponse.json(
+        { data: null, error: "Forbidden: You can only delete your own courses" },
         { status: 403 }
       );
     }
