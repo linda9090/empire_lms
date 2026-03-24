@@ -89,6 +89,9 @@ jobs:
       - name: SAST - TypeScript typecheck
         run: npx tsc --noEmit
 
+      - name: API contract regression gate (Issue #5)
+        run: ./scripts/devsecops/verify-api-contract.sh
+
       - name: SCA - Dependency/CVE audit (production)
         run: |
           set -o pipefail
