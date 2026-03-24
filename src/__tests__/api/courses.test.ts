@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/courses/route";
 import { GET as GET_BY_ID, PUT, DELETE } from "@/app/api/courses/[id]/route";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Mock dependencies
 vi.mock("@/lib/get-session", () => ({
   getSession: vi.fn(),

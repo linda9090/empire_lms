@@ -13,6 +13,8 @@ import {
 import {
   GET as GET_LESSONS,
   POST as POST_LESSON,
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
   PUT as PUT_LESSONS,
 } from "@/app/api/courses/[id]/sections/[sectionId]/lessons/route";
 import {
