@@ -67,22 +67,31 @@ else
   fail "Remote branch develop is missing."
 fi
 
+required_ci_contexts=(
+  "merge-gate / lint"
+  "merge-gate / test"
+  "merge-gate / build"
+  "devsecops-round2 / verify"
+)
+
 if main_approvals="$(gh api "repos/${REPO}/branches/main/protection" --jq '.required_pull_request_reviews.required_approving_review_count' 2>/dev/null)"; then
-  if [[ "${main_approvals}" =~ ^[0-9]+$ ]] && [[ "${main_approvals}" -ge 1 ]]; then
-    ok "main requires >=1 approving review."
+  if [[ "${main_approvals}" =~ ^[0-9]+$ ]] && [[ "${main_approvals}" -ge 2 ]]; then
+    ok "main requires >=2 approving reviews."
   else
-    fail "main approval requirement is below 1 (actual=${main_approvals})."
+    fail "main approval requirement is below 2 (actual=${main_approvals})."
   fi
 else
   fail "main branch protection rule is missing."
 fi
 
 if main_contexts="$(gh api "repos/${REPO}/branches/main/protection" --jq '.required_status_checks.contexts[]?' 2>/dev/null)"; then
-  if grep -Fxq "TypeScript Build" <<<"${main_contexts}"; then
-    ok "main requires TypeScript Build status check."
-  else
-    fail "main does not require TypeScript Build status check."
-  fi
+  for context in "${required_ci_contexts[@]}"; do
+    if grep -Fxq "${context}" <<<"${main_contexts}"; then
+      ok "main requires ${context} status check."
+    else
+      fail "main does not require ${context} status check."
+    fi
+  done
 else
   fail "Unable to read main required status checks."
 fi
@@ -127,12 +136,24 @@ else
   fail "develop branch protection rule is missing."
 fi
 
-if develop_contexts="$(gh api "repos/${REPO}/branches/develop/protection" --jq '.required_status_checks.contexts[]?' 2>/dev/null)"; then
-  if grep -Fxq "TypeScript Build" <<<"${develop_contexts}"; then
-    ok "develop requires TypeScript Build status check."
+if develop_approvals="$(gh api "repos/${REPO}/branches/develop/protection" --jq '.required_pull_request_reviews.required_approving_review_count' 2>/dev/null)"; then
+  if [[ "${develop_approvals}" =~ ^[0-9]+$ ]] && [[ "${develop_approvals}" -ge 2 ]]; then
+    ok "develop requires >=2 approving reviews."
   else
-    fail "develop does not require TypeScript Build status check."
+    fail "develop approval requirement is below 2 (actual=${develop_approvals})."
   fi
+else
+  fail "Unable to read develop approval requirement."
+fi
+
+if develop_contexts="$(gh api "repos/${REPO}/branches/develop/protection" --jq '.required_status_checks.contexts[]?' 2>/dev/null)"; then
+  for context in "${required_ci_contexts[@]}"; do
+    if grep -Fxq "${context}" <<<"${develop_contexts}"; then
+      ok "develop requires ${context} status check."
+    else
+      fail "develop does not require ${context} status check."
+    fi
+  done
 else
   fail "Unable to read develop required status checks."
 fi
@@ -145,6 +166,16 @@ if develop_force_push="$(gh api "repos/${REPO}/branches/develop/protection" --jq
   fi
 else
   fail "Unable to read develop force-push rule."
+fi
+
+if develop_deletions="$(gh api "repos/${REPO}/branches/develop/protection" --jq '.allow_deletions.enabled' 2>/dev/null)"; then
+  if [[ "${develop_deletions}" == "false" ]]; then
+    ok "develop deletion is disabled."
+  else
+    fail "develop deletion is enabled."
+  fi
+else
+  fail "Unable to read develop deletion rule."
 fi
 
 label_names="$(gh label list -R "${REPO}" --limit 200 --json name --jq '.[].name' 2>/dev/null || true)"

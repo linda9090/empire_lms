@@ -1,0 +1,101 @@
+name: merge-gate
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merge-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ${{ secrets.CI_DATABASE_URL || 'postgresql://empire_lms:empire_lms@127.0.0.1:5432/empire_lms' }}
+      BETTER_AUTH_SECRET: ${{ secrets.CI_BETTER_AUTH_SECRET || 'ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci' }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.CI_NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      PAYMENT_MODE: ${{ secrets.CI_PAYMENT_MODE || 'mock' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm run test
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.CI_DATABASE_URL || 'postgresql://empire_lms:empire_lms@127.0.0.1:5432/empire_lms' }}
+      BETTER_AUTH_SECRET: ${{ secrets.CI_BETTER_AUTH_SECRET || 'ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci' }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.CI_NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      PAYMENT_MODE: ${{ secrets.CI_PAYMENT_MODE || 'mock' }}
+      STRIPE_SECRET_KEY: ${{ secrets.CI_STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.CI_STRIPE_WEBHOOK_SECRET }}
+      PAYPAL_CLIENT_ID: ${{ secrets.CI_PAYPAL_CLIENT_ID }}
+      PAYPAL_CLIENT_SECRET: ${{ secrets.CI_PAYPAL_CLIENT_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: |
+          PRISMA_CONFIG_FLAG=""
+          if [ -f prisma/prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma/prisma.config.ts"
+          elif [ -f prisma.config.ts ]; then
+            PRISMA_CONFIG_FLAG="--config=prisma.config.ts"
+          fi
+
+          npx prisma generate ${PRISMA_CONFIG_FLAG}
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
