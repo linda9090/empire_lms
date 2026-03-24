@@ -42,39 +42,45 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    const activityId = body?.activityId;
+    const lessonId = body?.lessonId;
 
-    if (!activityId || typeof activityId !== "string") {
+    if (!lessonId || typeof lessonId !== "string") {
       return NextResponse.json(
-        { data: null, error: "activityId is required" },
+        { data: null, error: "lessonId is required" },
         { status: 400 }
       );
     }
 
     const userId = session.user.id;
 
-    const activity = await db.activity.findFirst({
+    const lesson = await db.lesson.findFirst({
       where: {
-        id: activityId,
-        deletedAt: null,
+        id: lessonId,
+        section: {
+          deletedAt: null,
+        },
         isPublished: true,
       },
       select: {
         id: true,
         title: true,
-        courseId: true,
-        course: {
+        section: {
           select: {
-            id: true,
-            title: true,
+            courseId: true,
+            course: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
           },
         },
       },
     });
 
-    if (!activity) {
+    if (!lesson) {
       return NextResponse.json(
-        { data: null, error: "Activity not found" },
+        { data: null, error: "Lesson not found" },
         { status: 404 }
       );
     }
@@ -82,7 +88,7 @@ export async function POST(request: NextRequest) {
     const enrollment = await db.enrollment.findFirst({
       where: {
         userId,
-        courseId: activity.courseId,
+        courseId: lesson.section.courseId,
         deletedAt: null,
       },
       select: { id: true },
@@ -97,9 +103,9 @@ export async function POST(request: NextRequest) {
 
     const existingProgress = await db.progress.findUnique({
       where: {
-        userId_activityId: {
+        userId_lessonId: {
           userId,
-          activityId,
+          lessonId,
         },
       },
       select: {
@@ -118,7 +124,7 @@ export async function POST(request: NextRequest) {
       await db.progress.create({
         data: {
           userId,
-          activityId,
+          lessonId,
         },
       });
     } catch (error) {
@@ -133,19 +139,23 @@ export async function POST(request: NextRequest) {
     }
 
     const [totalLessons, completedLessons] = await Promise.all([
-      db.activity.count({
+      db.lesson.count({
         where: {
-          courseId: activity.courseId,
-          deletedAt: null,
+          section: {
+            courseId: lesson.section.courseId,
+            deletedAt: null,
+          },
           isPublished: true,
         },
       }),
       db.progress.count({
         where: {
           userId,
-          activity: {
-            courseId: activity.courseId,
-            deletedAt: null,
+          lesson: {
+            section: {
+              courseId: lesson.section.courseId,
+              deletedAt: null,
+            },
             isPublished: true,
           },
         },
@@ -160,13 +170,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         data: {
-          activity: {
-            id: activity.id,
-            title: activity.title,
+          lesson: {
+            id: lesson.id,
+            title: lesson.title,
           },
           courseProgress: {
-            courseId: activity.courseId,
-            courseTitle: activity.course.title,
+            courseId: lesson.section.courseId,
+            courseTitle: lesson.section.course.title,
             totalLessons,
             completedLessons,
             progressPercentage,
