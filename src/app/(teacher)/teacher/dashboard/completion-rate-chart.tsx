@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { getChartColors } from "@/lib/chartColors";
 
 export interface CompletionRateDatum {
   courseTitle: string;
@@ -27,6 +28,7 @@ function shortenTitle(title: string): string {
 export default function CompletionRateChart({
   data,
 }: CompletionRateChartProps) {
+  const chartColors = getChartColors();
   const chartData = data.map((item) => ({
     ...item,
     shortTitle: shortenTitle(item.courseTitle),
@@ -39,21 +41,44 @@ export default function CompletionRateChart({
           data={chartData}
           margin={{ top: 12, right: 12, left: -12, bottom: 12 }}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="shortTitle" fontSize={12} interval={0} angle={-20} height={60} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={chartColors.gridStroke}
+            vertical={false}
+          />
+          <XAxis
+            dataKey="shortTitle"
+            fontSize={12}
+            interval={0}
+            angle={-20}
+            height={60}
+            tick={{ fill: chartColors.textFill }}
+          />
           <YAxis
             domain={[0, 100]}
             tickFormatter={(value) => `${value}%`}
             width={44}
             fontSize={12}
+            tick={{ fill: chartColors.textFill }}
           />
           <Tooltip
             formatter={(value: number, _name, payload) => [
               `${value}%`,
               `${payload.payload.courseTitle} (수강생 ${payload.payload.enrollmentCount}명)`,
             ]}
+            contentStyle={{
+              backgroundColor: "var(--card)",
+              borderColor: chartColors.gridStroke,
+              color: chartColors.textFill,
+            }}
+            labelStyle={{ color: chartColors.textFill }}
+            itemStyle={{ color: chartColors.textFill }}
           />
-          <Bar dataKey="completionRate" fill="#2563eb" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="completionRate"
+            fill={chartColors.barFill}
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
