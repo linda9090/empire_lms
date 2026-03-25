@@ -19,10 +19,10 @@ export default async function CheckoutSuccessPage({
 
   return (
     <div className="max-w-lg mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="bg-card rounded-lg shadow-md p-8 text-center">
         <div className="mb-6">
           <svg
-            className="mx-auto h-16 w-16 text-green-500"
+            className="mx-auto h-16 w-16 text-status-published"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -38,12 +38,12 @@ export default async function CheckoutSuccessPage({
 
         <h1 className="text-2xl font-bold mb-4">Payment Successful!</h1>
 
-        <p className="text-gray-600 mb-6">
+        <p className="text-muted-foreground mb-6">
           Thank you for your purchase. You are now enrolled in the course.
         </p>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <p className="text-sm text-gray-500">
+        <div className="bg-muted rounded-lg p-4 mb-6">
+          <p className="text-sm text-muted-foreground">
             Transaction ID: <span className="font-mono">{session_id}</span>
           </p>
         </div>
@@ -51,13 +51,13 @@ export default async function CheckoutSuccessPage({
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href={`/student/courses/${courseId}`}
-            className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90"
           >
             Go to Course
           </Link>
           <Link
             href="/student/dashboard"
-            className="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50"
+            className="inline-flex justify-center items-center px-6 py-3 border border-border text-base font-medium rounded-md text-foreground hover:bg-muted"
           >
             Dashboard
           </Link>

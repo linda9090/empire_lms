@@ -16,28 +16,28 @@ export function ChartState({
   return (
     <div
       className={cn(
-        "flex min-h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center animate-in fade-in duration-300",
+        "flex min-h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/50 p-8 text-center animate-in fade-in duration-300",
         className
       )}
       {...props}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 mb-4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/50 mb-4">
         {state === "loading" && (
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         )}
         {state === "empty" && (
-          <BarChart2 className="h-6 w-6 text-gray-400" />
+          <BarChart2 className="h-6 w-6 text-muted-foreground" />
         )}
         {state === "error" && (
-          <AlertCircle className="h-6 w-6 text-red-500" />
+          <AlertCircle className="h-6 w-6 text-destructive" />
         )}
       </div>
-      <h3 className="text-sm font-semibold text-gray-900">
+      <h3 className="text-sm font-semibold text-foreground">
         {state === "loading" && "데이터를 불러오는 중입니다"}
         {state === "empty" && "표시할 데이터가 없습니다"}
         {state === "error" && "데이터를 불러오지 못했습니다"}
       </h3>
-      <p className="mt-1 max-w-sm text-sm text-gray-500">
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         {message ||
           (state === "loading"
             ? "잠시만 기다려주세요. 통계 데이터를 분석하고 있습니다."

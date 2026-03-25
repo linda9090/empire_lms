@@ -42,16 +42,16 @@ export default function RegisterPage() {
   }
 
   return (
-    <div>
+    <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
       <h1 className="mb-6 text-2xl font-bold">Sign Up</h1>
       {error && (
-        <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">
+        <div className="mb-4 rounded bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium">
+          <label htmlFor="name" className="block text-sm font-medium text-foreground">
             Full Name
           </label>
           <input
@@ -60,11 +60,11 @@ export default function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-foreground"
           />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
             Email
           </label>
           <input
@@ -73,11 +73,11 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-foreground"
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             Password
           </label>
           <input
@@ -87,18 +87,18 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-foreground"
           />
         </div>
         <div>
-          <label htmlFor="role" className="block text-sm font-medium">
+          <label htmlFor="role" className="block text-sm font-medium text-foreground">
             Role
           </label>
           <select
             id="role"
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-foreground"
           >
             {ROLES.map((r) => (
               <option key={r.value} value={r.value}>
@@ -110,14 +110,14 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded bg-primary py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? "Creating account..." : "Sign Up"}
         </button>
       </form>
-      <p className="mt-4 text-center text-sm">
+      <p className="mt-4 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-600 hover:underline">
+        <Link href="/login" className="text-primary hover:underline">
           Log In
         </Link>
       </p>

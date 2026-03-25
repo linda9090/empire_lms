@@ -9,10 +9,10 @@ export default async function CheckoutCanceledPage({ params }: PageProps) {
 
   return (
     <div className="max-w-lg mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="bg-card rounded-lg shadow-md p-8 text-center">
         <div className="mb-6">
           <svg
-            className="mx-auto h-16 w-16 text-red-500"
+            className="mx-auto h-16 w-16 text-destructive"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -28,12 +28,12 @@ export default async function CheckoutCanceledPage({ params }: PageProps) {
 
         <h1 className="text-2xl font-bold mb-4">Payment Canceled</h1>
 
-        <p className="text-gray-600 mb-6">
+        <p className="text-muted-foreground mb-6">
           You canceled the payment process. You haven&apos;t been charged.
         </p>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-amber-800">
+        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
             If you changed your mind, you can return to the checkout page
             anytime to complete your enrollment.
           </p>
@@ -42,13 +42,13 @@ export default async function CheckoutCanceledPage({ params }: PageProps) {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href={`/student/courses/${courseId}/checkout`}
-            className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90"
           >
             Try Again
           </Link>
           <Link
             href="/student/courses"
-            className="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 hover:bg-gray-50"
+            className="inline-flex justify-center items-center px-6 py-3 border border-border text-base font-medium rounded-md text-foreground hover:bg-muted"
           >
             Browse Courses
           </Link>

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
+import { getCourseStatusToken } from "@/lib/tokens";
 import type { UserRole } from "@/types";
 
 interface AdminDashboardData {
@@ -204,7 +205,7 @@ export default async function AdminDashboardPage() {
   if (!session?.user) {
     return (
       <div className="p-6">
-        <p className="text-red-600">Unauthorized: Please log in</p>
+        <p className="text-destructive">Unauthorized: Please log in</p>
       </div>
     );
   }
@@ -213,7 +214,7 @@ export default async function AdminDashboardPage() {
   if (userRole !== "ADMIN") {
     return (
       <div className="p-6">
-        <p className="text-red-600">Forbidden: Admin access required</p>
+        <p className="text-destructive">Forbidden: Admin access required</p>
       </div>
     );
   }
@@ -232,8 +233,8 @@ export default async function AdminDashboardPage() {
     return (
       <div className="mx-auto max-w-7xl p-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="mt-2 text-gray-600">Welcome back, {session.user.name}</p>
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
+        <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {dataError ?? "데이터를 불러올 수 없습니다."}
         </div>
       </div>
@@ -243,62 +244,62 @@ export default async function AdminDashboardPage() {
   return (
     <div className="mx-auto max-w-7xl p-6">
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-      <p className="mt-2 text-gray-600">Welcome back, {session.user.name}</p>
+      <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">전체 강의 수</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">전체 강의 수</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalCourses}</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             공개 강의 {stats.publishedCourses}개
           </p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">전체 수강생 수</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">전체 수강생 수</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalStudents}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">전체 수강 등록 수</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">전체 수강 등록 수</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalEnrollments}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">전체 완료율</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">전체 완료율</p>
           <p className="mt-2 text-3xl font-bold">{stats.overallCompletionRate}%</p>
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">교사 계정</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">교사 계정</p>
           <p className="mt-2 text-2xl font-bold">{stats.totalTeachers}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">보호자 계정</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">보호자 계정</p>
           <p className="mt-2 text-2xl font-bold">{stats.totalGuardians}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">최근 등록 건수</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">최근 등록 건수</p>
           <p className="mt-2 text-2xl font-bold">{stats.recentEnrollments.length}</p>
         </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Recent Enrollments</h2>
           {stats.recentEnrollments.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-600">등록 데이터가 없습니다.</p>
+            <p className="mt-2 text-sm text-muted-foreground">등록 데이터가 없습니다.</p>
           ) : (
             <div className="mt-4 space-y-3">
               {stats.recentEnrollments.map((enrollment) => (
                 <div
                   key={enrollment.id}
-                  className="flex items-center justify-between border-b pb-2 text-sm last:border-0"
+                  className="flex items-center justify-between border-b border-border pb-2 text-sm last:border-0"
                 >
                   <div>
                     <p className="font-medium">{enrollment.user.name}</p>
-                    <p className="text-xs text-gray-600">{enrollment.course.title}</p>
+                    <p className="text-xs text-muted-foreground">{enrollment.course.title}</p>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {new Date(enrollment.enrolledAt).toLocaleDateString()}
                   </span>
                 </div>
@@ -307,35 +308,34 @@ export default async function AdminDashboardPage() {
           )}
         </div>
 
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Course Overview</h2>
           {stats.courseStats.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-600">강의 데이터가 없습니다.</p>
+            <p className="mt-2 text-sm text-muted-foreground">강의 데이터가 없습니다.</p>
           ) : (
             <div className="mt-4 space-y-3">
-              {stats.courseStats.slice(0, 8).map((course) => (
-                <div
-                  key={course.id}
-                  className="flex items-center justify-between border-b pb-2 text-sm last:border-0"
-                >
-                  <div className="flex-1">
-                    <p className="truncate font-medium">{course.title}</p>
-                    <p className="text-xs text-gray-600">
-                      {course.lessons} lessons · {course.enrollments} enrolled ·{" "}
-                      {course.completionRate}% complete
-                    </p>
-                  </div>
-                  <span
-                    className={`ml-2 rounded px-2 py-1 text-xs ${
-                      course.isPublished
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
+              {stats.courseStats.slice(0, 8).map((course) => {
+                const status = course.isPublished ? "PUBLISHED" : "DRAFT";
+                const statusToken = getCourseStatusToken(status);
+
+                return (
+                  <div
+                    key={course.id}
+                    className="flex items-center justify-between border-b border-border pb-2 text-sm last:border-0"
                   >
-                    {course.isPublished ? "Published" : "Draft"}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex-1">
+                      <p className="truncate font-medium">{course.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {course.lessons} lessons · {course.enrollments} enrolled ·{" "}
+                        {course.completionRate}% complete
+                      </p>
+                    </div>
+                    <span className={`ml-2 rounded px-2 py-1 text-xs ${statusToken.badgeClass}`}>
+                      {status}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
