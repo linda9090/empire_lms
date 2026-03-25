@@ -10,6 +10,8 @@ import {
   YAxis,
 } from "recharts";
 
+import { CHART_COLORS } from "@/lib/chartColors";
+
 export interface CompletionRateDatum {
   courseTitle: string;
   completionRate: number;
@@ -53,7 +55,7 @@ export default function CompletionRateChart({
               `${payload.payload.courseTitle} (수강생 ${payload.payload.enrollmentCount}명)`,
             ]}
           />
-          <Bar dataKey="completionRate" fill="#2563eb" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="completionRate" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
