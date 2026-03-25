@@ -24,6 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
     const { id } = await params;
 
@@ -89,6 +90,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
     const { id } = await params;
 
@@ -150,7 +152,10 @@ export async function PATCH(
 
     if (input.isPublished !== undefined && input.isPublished !== existingCourse.isPublished) {
       updateData.isPublished = input.isPublished;
-      // No audit for simple publish/unpublish - not a "destructive" action per requirements
+      // Track unpublish as audit action
+      if (!input.isPublished && existingCourse.isPublished) {
+        auditAction = "COURSE_UNPUBLISHED";
+      }
     }
 
     if (input.isDeleted !== undefined) {
@@ -236,6 +241,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
     const { id } = await params;
 

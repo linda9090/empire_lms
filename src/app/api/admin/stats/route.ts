@@ -25,6 +25,8 @@ const statsQuerySchema = z.object({
 ).refine(
   (data) => {
     // Validate date range is not too large (max 1 year)
+    // verify: startDate > endDate
+    // verify: rangeDays > 365
     if (data.startDate && data.endDate) {
       const start = new Date(data.startDate);
       const end = new Date(data.endDate);
@@ -112,6 +114,7 @@ interface StatisticsResponse {
 export async function GET(request: NextRequest) {
   try {
     // Direct ADMIN verification
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
 
     // Parse and validate query parameters

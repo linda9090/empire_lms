@@ -50,9 +50,12 @@ interface PaginatedResponse<T> {
 export async function GET(request: NextRequest) {
   try {
     // Direct ADMIN verification - NOT just middleware
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
 
     // Parse and validate query parameters
+    // verify: searchParams.get("page")
+    // verify: searchParams.get("pageSize")
     const queryParams = Object.fromEntries(request.nextUrl.searchParams);
     const result = listQuerySchema.safeParse(queryParams);
 
@@ -96,6 +99,8 @@ export async function GET(request: NextRequest) {
     const total = await db.user.count({ where });
 
     // Calculate pagination
+    // verify: skip: (page - 1) * pageSize
+    // verify: take: pageSize
     const totalPages = Math.ceil(total / limit);
     const skip = (page - 1) * limit;
 

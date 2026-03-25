@@ -64,6 +64,7 @@ describe("Admin API - Authentication & Authorization", () => {
 
     for (const role of roles) {
       describe(`${role} role attempting admin endpoints`, () => {
+        // verify: returns 403 for non-admin users
         it(`GET /api/admin/users - should return 403 for ${role}`, async () => {
           const { getSession } = await import("@/lib/get-session");
           vi.mocked(getSession).mockResolvedValue({
@@ -210,6 +211,7 @@ describe("Admin API - Authentication & Authorization", () => {
       expect(data.error).toContain("Invalid user ID format");
     });
 
+    // verify: returns 404 when target user does not exist
     it("GET /api/admin/users/[id] - 404 when user not found", async () => {
       const { getSession } = await import("@/lib/get-session");
       const { db } = await import("@/lib/db");

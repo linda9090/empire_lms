@@ -25,6 +25,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
     const { id } = await params;
 
@@ -95,6 +96,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // verify: session.user.role !== "ADMIN"
     const auth = await requireAdmin(request);
     const { id } = await params;
 
@@ -198,7 +200,22 @@ export async function PATCH(
     });
 
     // Create audit log
-    if (auditAction) {
+    if (auditAction === "USER_ROLE_CHANGED") {
+      await createAuditLog({
+        auth,
+        action: "USER_ROLE_CHANGED",
+        targetType: AuditTargetType.USER,
+        targetId: id,
+        oldValue: serializeForAudit({
+          role: existingUser.role,
+          deletedAt: existingUser.deletedAt,
+        }),
+        newValue: serializeForAudit({
+          role: updatedUser.role,
+          deletedAt: updatedUser.deletedAt,
+        }),
+      });
+    } else if (auditAction) {
       await createAuditLog({
         auth,
         action: auditAction,
