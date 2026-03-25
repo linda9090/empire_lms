@@ -58,6 +58,23 @@ enum PaymentStatus {
   canceled
 }
 
+enum NotificationType {
+  ENROLLMENT_COMPLETED
+  PAYMENT_SUCCEEDED
+  LESSON_CREATED
+  STUDENT_ENROLLED
+  LESSON_COMPLETED
+  COURSE_PUBLISHED
+  INVITE_SENT
+  INVITE_ACCEPTED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 // ─── Auth Models (better-auth compatible) ───────────────────────────
 
 model User {
@@ -81,6 +98,7 @@ model User {
   paymentTransactions  PaymentTransaction[]
   sessions             Session[]
   accounts             Account[]
+  notifications        Notification[]
 
   @@map("users")
 }
@@ -395,4 +413,30 @@ model Consent {
   @@index([userEmail])
   @@index([organizationId])
   @@map("consents")
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────
+
+model Notification {
+  id             String             @id @default(cuid())
+  userId         String             @map("user_id")
+  type           NotificationType
+  title          String
+  message        String             @db.Text
+  emailStatus    NotificationStatus @default(PENDING) @map("email_status")
+  isRead         Boolean            @default(false) @map("is_read")
+  readAt         DateTime?          @map("read_at")
+  courseId       String?            @map("course_id")
+  lessonId       String?            @map("lesson_id")
+  enrollmentId   String?            @map("enrollment_id")
+  metadata       String?            @db.Text
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }

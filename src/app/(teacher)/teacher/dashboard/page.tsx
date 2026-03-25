@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
+import RoleBadge from "@/components/shared/RoleBadge";
 import { Progress } from "@/components/ui/progress";
 import type { UserRole } from "@/types";
 import CompletionRateChart, {
@@ -235,8 +236,13 @@ export default async function TeacherDashboardPage() {
   if (!stats) {
     return (
       <div className="mx-auto max-w-7xl p-6">
-        <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
-        <p className="mt-2 text-gray-600">Welcome back, {session.user.name}</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
+          <RoleBadge role={userRole} />
+        </div>
+        <p className="mt-2 text-muted-foreground">
+          Welcome back, {session.user.name}
+        </p>
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {dataError ?? "데이터를 불러올 수 없습니다."}
         </div>
@@ -246,28 +252,33 @@ export default async function TeacherDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
-      <p className="mt-2 text-gray-600">Welcome back, {session.user.name}</p>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
+        <RoleBadge role={userRole} />
+      </div>
+      <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
 
       <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">Published Courses</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">Published Courses</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalCourses}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">Total Students</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">Total Students</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalStudents}</p>
         </div>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-600">Total Enrollments</p>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <p className="text-sm text-muted-foreground">Total Enrollments</p>
           <p className="mt-2 text-3xl font-bold">{stats.totalEnrollments}</p>
         </div>
       </div>
 
-      <div className="mt-8 rounded-lg border bg-white p-4 shadow-sm">
+      <div className="mt-8 rounded-lg border bg-card p-4 shadow-sm">
         <h2 className="text-lg font-semibold">강의별 완료율 차트</h2>
         {stats.chartData.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-600">표시할 강의 데이터가 없습니다.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            표시할 강의 데이터가 없습니다.
+          </p>
         ) : (
           <div className="mt-4">
             <CompletionRateChart data={stats.chartData} />
@@ -278,7 +289,7 @@ export default async function TeacherDashboardPage() {
       <div className="mt-8">
         <h2 className="text-xl font-semibold">Course-Wise Student Status</h2>
         {stats.courseStats.length === 0 ? (
-          <div className="mt-4 rounded-lg bg-gray-50 p-8 text-center text-gray-600">
+          <div className="mt-4 rounded-lg bg-muted/40 p-8 text-center text-muted-foreground">
             Published course가 없어 집계할 수 없습니다.
           </div>
         ) : (
@@ -286,33 +297,33 @@ export default async function TeacherDashboardPage() {
             {stats.courseStats.map((course) => (
               <article
                 key={course.courseId}
-                className="rounded-lg border bg-white p-4 shadow-sm"
+                className="rounded-lg border bg-card p-4 shadow-sm"
               >
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h3 className="text-lg font-semibold">{course.courseTitle}</h3>
                     {course.courseDescription && (
-                      <p className="mt-1 text-sm text-gray-600">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         {course.courseDescription}
                       </p>
                     )}
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">{course.completionRate}%</p>
-                    <p className="text-xs text-gray-600">Completion Rate</p>
+                    <p className="text-xs text-muted-foreground">Completion Rate</p>
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     Enrolled Students:{" "}
                     <span className="font-semibold">{course.enrollmentCount}</span>
                   </p>
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     Total Lessons:{" "}
                     <span className="font-semibold">{course.totalLessons}</span>
                   </p>
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     Completions:{" "}
                     <span className="font-semibold">{course.totalCompletions}</span>
                   </p>
@@ -324,7 +335,9 @@ export default async function TeacherDashboardPage() {
 
                 {course.recentEnrollments.length > 0 && (
                   <div className="mt-4 border-t pt-4">
-                    <p className="mb-2 text-xs text-gray-600">Recent Enrollments</p>
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      Recent Enrollments
+                    </p>
                     <div className="space-y-1 text-xs">
                       {course.recentEnrollments.map((enrollment) => (
                         <div
@@ -334,7 +347,7 @@ export default async function TeacherDashboardPage() {
                           <span>
                             {enrollment.userName?.trim() || enrollment.userEmail}
                           </span>
-                          <span className="text-gray-500">
+                          <span className="text-muted-foreground">
                             {new Date(
                               enrollment.enrolledAt
                             ).toLocaleDateString()}
