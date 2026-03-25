@@ -75,6 +75,40 @@ enum NotificationStatus {
   FAILED
 }
 
+enum AuditAction {
+  USER_ROLE_CHANGED
+  USER_SUSPENDED
+  USER_UNSUSPENDED
+  COURSE_PUBLISHED
+  COURSE_UNPUBLISHED
+  COURSE_DELETED
+  COURSE_RESTORED
+  PAYMENT_REFUNDED
+  ENROLLMENT_CANCELLED
+}
+
+// ─── Audit & Compliance ───────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String   @map("admin_id")
+  action     AuditAction
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id")
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 // ─── Auth Models (better-auth compatible) ───────────────────────────
 
 model User {
@@ -99,6 +133,7 @@ model User {
   sessions             Session[]
   accounts             Account[]
   notifications        Notification[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }

@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
-import RoleBadge from "@/components/shared/RoleBadge";
 import { Progress } from "@/components/ui/progress";
 import type { UserRole } from "@/types";
 import CompletionRateChart, {
@@ -209,7 +208,7 @@ export default async function TeacherDashboardPage() {
   if (!session?.user) {
     return (
       <div className="p-6">
-        <p className="text-red-600">Unauthorized: Please log in</p>
+        <p className="text-destructive">Unauthorized: Please log in</p>
       </div>
     );
   }
@@ -218,7 +217,7 @@ export default async function TeacherDashboardPage() {
   if (userRole !== "TEACHER" && userRole !== "ADMIN") {
     return (
       <div className="p-6">
-        <p className="text-red-600">Forbidden: Teacher access required</p>
+        <p className="text-destructive">Forbidden: Teacher access required</p>
       </div>
     );
   }
@@ -236,14 +235,9 @@ export default async function TeacherDashboardPage() {
   if (!stats) {
     return (
       <div className="mx-auto max-w-7xl p-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
-          <RoleBadge role={userRole} />
-        </div>
-        <p className="mt-2 text-muted-foreground">
-          Welcome back, {session.user.name}
-        </p>
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
+        <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
+        <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {dataError ?? "데이터를 불러올 수 없습니다."}
         </div>
       </div>
@@ -252,10 +246,7 @@ export default async function TeacherDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
-        <RoleBadge role={userRole} />
-      </div>
+      <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
       <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
 
       <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -276,9 +267,7 @@ export default async function TeacherDashboardPage() {
       <div className="mt-8 rounded-lg border bg-card p-4 shadow-sm">
         <h2 className="text-lg font-semibold">강의별 완료율 차트</h2>
         {stats.chartData.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            표시할 강의 데이터가 없습니다.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">표시할 강의 데이터가 없습니다.</p>
         ) : (
           <div className="mt-4">
             <CompletionRateChart data={stats.chartData} />
@@ -289,7 +278,7 @@ export default async function TeacherDashboardPage() {
       <div className="mt-8">
         <h2 className="text-xl font-semibold">Course-Wise Student Status</h2>
         {stats.courseStats.length === 0 ? (
-          <div className="mt-4 rounded-lg bg-muted/40 p-8 text-center text-muted-foreground">
+          <div className="mt-4 rounded-lg bg-muted p-8 text-center text-muted-foreground">
             Published course가 없어 집계할 수 없습니다.
           </div>
         ) : (
@@ -334,10 +323,8 @@ export default async function TeacherDashboardPage() {
                 </div>
 
                 {course.recentEnrollments.length > 0 && (
-                  <div className="mt-4 border-t pt-4">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      Recent Enrollments
-                    </p>
+                  <div className="mt-4 border-t border-border pt-4">
+                    <p className="mb-2 text-xs text-muted-foreground">Recent Enrollments</p>
                     <div className="space-y-1 text-xs">
                       {course.recentEnrollments.map((enrollment) => (
                         <div

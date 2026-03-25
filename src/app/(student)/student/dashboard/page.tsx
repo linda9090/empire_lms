@@ -115,7 +115,7 @@ export default async function StudentDashboardPage() {
   if (!session?.user) {
     return (
       <div className="p-6">
-        <p className="text-red-600">Unauthorized: Please log in</p>
+        <p className="text-destructive">Unauthorized: Please log in</p>
       </div>
     );
   }
@@ -124,7 +124,7 @@ export default async function StudentDashboardPage() {
   if (userRole !== "STUDENT" && userRole !== "ADMIN") {
     return (
       <div className="p-6">
-        <p className="text-red-600">Forbidden: Student access required</p>
+        <p className="text-destructive">Forbidden: Student access required</p>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export default async function StudentDashboardPage() {
         <h2 className="text-xl font-semibold">Courses In Progress</h2>
 
         {dataError && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
             {dataError}
           </div>
         )}
