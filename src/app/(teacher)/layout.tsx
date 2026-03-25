@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/get-session";
 import ShellLayout from "@/components/shared/ShellLayout";
+import type { UserRole } from "@/types";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/teacher/dashboard" },
@@ -24,7 +25,7 @@ export default async function TeacherLayout({
 
   return (
     <ShellLayout
-      role="Teacher"
+      role={session.user.role as UserRole}
       userName={session.user.name}
       navItems={NAV_ITEMS}
     >

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
+import RoleBadge from "@/components/shared/RoleBadge";
 import { Progress } from "@/components/ui/progress";
 import type { UserRole } from "@/types";
 
@@ -140,8 +141,11 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      <h1 className="text-2xl font-bold">Student Dashboard</h1>
-      <p className="mt-2 text-gray-600">Welcome back, {session.user.name}</p>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-bold">Student Dashboard</h1>
+        <RoleBadge role={userRole} />
+      </div>
+      <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold">Courses In Progress</h2>
@@ -153,9 +157,9 @@ export default async function StudentDashboardPage() {
         )}
 
         {!dataError && coursesInProgress.length === 0 && (
-          <div className="mt-4 rounded-lg bg-gray-50 p-8 text-center">
-            <p className="text-gray-700">수강 중인 강의가 없습니다.</p>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="mt-4 rounded-lg bg-muted/40 p-8 text-center">
+            <p className="text-foreground">수강 중인 강의가 없습니다.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
               강의를 등록하면 이곳에서 진도율을 확인할 수 있습니다.
             </p>
           </div>
@@ -166,29 +170,29 @@ export default async function StudentDashboardPage() {
             {coursesInProgress.map((course) => (
               <article
                 key={course.courseId}
-                className="rounded-lg border bg-white p-4 shadow-sm"
+                className="rounded-lg border bg-card p-4 shadow-sm"
               >
                 <h3 className="truncate text-lg font-semibold">
                   {course.courseTitle}
                 </h3>
                 {course.courseDescription && (
-                  <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                     {course.courseDescription}
                   </p>
                 )}
                 <div className="mt-4">
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Progress</span>
+                    <span className="text-muted-foreground">Progress</span>
                     <span className="font-medium">
                       {course.completedLessons}/{course.totalLessons} lessons
                     </span>
                   </div>
                   <Progress value={course.progressPercentage} className="h-2" />
-                  <p className="mt-1 text-right text-sm text-gray-600">
+                  <p className="mt-1 text-right text-sm text-muted-foreground">
                     {course.progressPercentage}%
                   </p>
                 </div>
-                <p className="mt-4 text-xs text-gray-500">
+                <p className="mt-4 text-xs text-muted-foreground">
                   Enrolled: {new Date(course.enrolledAt).toLocaleDateString()}
                 </p>
               </article>
