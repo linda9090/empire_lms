@@ -26,10 +26,10 @@ export default function ShellLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 border-r bg-gray-50 p-4">
+      <aside className="w-64 border-r bg-muted/40 p-4">
         <div className="mb-6">
           <h2 className="text-lg font-bold">Empire LMS</h2>
-          <p className="text-sm text-gray-500">{role}</p>
+          <p className="text-sm text-muted-foreground">{role}</p>
         </div>
         <nav className="space-y-1">
           {navItems.map((item) => (
@@ -38,8 +38,8 @@ export default function ShellLayout({
               href={item.href}
               className={`block rounded px-3 py-2 text-sm ${
                 pathname === item.href
-                  ? "bg-blue-100 font-medium text-blue-700"
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-primary/10 font-medium text-primary"
+                  : "text-foreground hover:bg-accent"
               }`}
             >
               {item.label}
@@ -48,11 +48,11 @@ export default function ShellLayout({
         </nav>
         <div className="mt-auto pt-6">
           {userName && (
-            <p className="mb-2 truncate text-sm text-gray-600">{userName}</p>
+            <p className="mb-2 truncate text-sm text-muted-foreground">{userName}</p>
           )}
           <button
             onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/login"; } } })}
-            className="w-full rounded border px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            className="w-full rounded border px-3 py-2 text-sm text-foreground hover:bg-accent"
           >
             Sign Out
           </button>

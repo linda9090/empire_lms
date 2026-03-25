@@ -35,7 +35,7 @@ export default function LoginPage() {
     <div>
       <h1 className="mb-6 text-2xl font-bold">Log In</h1>
       {error && (
-        <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">
+        <div className="mb-4 rounded bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -50,7 +50,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-input bg-background px-3 py-2"
           />
         </div>
         <div>
@@ -63,20 +63,20 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border border-input bg-background px-3 py-2"
           />
         </div>
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? "Logging in..." : "Log In"}
         </button>
       </form>
       <p className="mt-4 text-center text-sm">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="text-blue-600 hover:underline">
+        <Link href="/register" className="text-primary hover:underline">
           Sign Up
         </Link>
       </p>

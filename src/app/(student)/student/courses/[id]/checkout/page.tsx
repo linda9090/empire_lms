@@ -43,7 +43,7 @@ export default async function CheckoutPage({ params }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-8">
+      <div className="bg-card rounded-lg shadow-md p-8">
         <h1 className="text-2xl font-bold mb-6">Checkout</h1>
 
         <div className="mb-6">
@@ -54,7 +54,7 @@ export default async function CheckoutPage({ params }: PageProps) {
           />
           <h2 className="text-xl font-semibold">{course.title}</h2>
           {course.teacher && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Instructor: {course.teacher.name}
             </p>
           )}
@@ -62,7 +62,7 @@ export default async function CheckoutPage({ params }: PageProps) {
 
         <div className="border-t pt-4 mb-6">
           <div className="flex justify-between items-center">
-            <span className="text-gray-700">Course Price</span>
+            <span className="text-foreground">Course Price</span>
             <span className="text-2xl font-bold">
               {isFree ? "Free" : `$${course.price?.toFixed(2) ?? "0.00"}`}
             </span>
