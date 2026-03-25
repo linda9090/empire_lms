@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
+import RoleBadge from "@/components/shared/RoleBadge";
 import { Progress } from "@/components/ui/progress";
 import type { UserRole } from "@/types";
 
@@ -140,7 +141,10 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      <h1 className="text-2xl font-bold">Student Dashboard</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-bold">Student Dashboard</h1>
+        <RoleBadge role={userRole} />
+      </div>
       <p className="mt-2 text-muted-foreground">Welcome back, {session.user.name}</p>
 
       <div className="mt-8">
@@ -153,7 +157,7 @@ export default async function StudentDashboardPage() {
         )}
 
         {!dataError && coursesInProgress.length === 0 && (
-          <div className="mt-4 rounded-lg bg-muted p-8 text-center">
+          <div className="mt-4 rounded-lg bg-muted/40 p-8 text-center">
             <p className="text-foreground">수강 중인 강의가 없습니다.</p>
             <p className="mt-1 text-sm text-muted-foreground">
               강의를 등록하면 이곳에서 진도율을 확인할 수 있습니다.
