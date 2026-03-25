@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "verify:issue5:security": "bash ./scripts/devsecops/verify-issue5-security.sh",
-    "verify:admin:ops": "bash ./scripts/devsecops/verify-admin-console-p0.sh"
+    "verify:admin:ops": "bash ./scripts/devsecops/verify-admin-console-p0.sh",
+    "verify:tokens:infrasec": "bash ./scripts/devsecops/verify-token-rollout-infrasec.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1015.0",
