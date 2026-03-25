@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { NotificationEventType } from "@prisma/client";
 import { getSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types";
+import { createNotificationsForRecipients } from "@/lib/notification";
 
 // GET /api/courses/[id]/sections/[sectionId]/lessons - List all lessons in a section
 export async function GET(
@@ -69,7 +71,7 @@ export async function POST(
     // Verify course ownership (BLOCKER check)
     const course = await db.course.findFirst({
       where: { id: courseId, deletedAt: null },
-      select: { id: true, teacherId: true },
+      select: { id: true, title: true, teacherId: true },
     });
 
     if (!course) {
@@ -160,6 +162,54 @@ export async function POST(
         sectionId,
       },
     });
+
+    const enrolledStudents = await db.enrollment.findMany({
+      where: {
+        courseId,
+        deletedAt: null,
+        status: "ACTIVE",
+        user: {
+          deletedAt: null,
+          role: "STUDENT",
+        },
+      },
+      select: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    const recipients = enrolledStudents.map((enrollment) => ({
+      userId: enrollment.user.id,
+      email: enrollment.user.email,
+      name: enrollment.user.name,
+      role: enrollment.user.role,
+    }));
+
+    if (recipients.length > 0) {
+      await createNotificationsForRecipients({
+        recipients,
+        eventType: NotificationEventType.STUDENT_NEW_LESSON_REGISTERED,
+        title: "새 레슨이 등록되었습니다",
+        message: `${course.title} 강의에 새 레슨 "${lesson.title}" 이(가) 등록되었습니다.`,
+        courseId,
+        lessonId: lesson.id,
+        linkUrl: `/student/courses/${courseId}`,
+        metadata: {
+          courseId,
+          lessonId: lesson.id,
+          sectionId,
+          source: "lesson-create",
+        },
+        idempotencyKeyPrefix: `lesson-create:${lesson.id}:student`,
+      });
+    }
 
     return NextResponse.json({ data: lesson, error: null }, { status: 201 });
   } catch (error) {

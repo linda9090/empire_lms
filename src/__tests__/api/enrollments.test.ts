@@ -22,6 +22,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/notification", () => ({
+  buildNotificationIdempotencyKey: vi.fn((...parts: Array<string | number>) =>
+    parts.join(":")
+  ),
+  createNotification: vi.fn().mockResolvedValue(null),
+}));
+
 describe("Enrollments API - GET /api/enrollments", () => {
   beforeEach(() => {
     vi.clearAllMocks();

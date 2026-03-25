@@ -1,9 +1,14 @@
-import { Prisma } from "@prisma/client";
+import { NotificationEventType, Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/get-session";
 import { calculateProgressPercentage } from "@/lib/progress";
 import type { UserRole } from "@/types";
+import {
+  buildNotificationIdempotencyKey,
+  createNotification,
+  createNotificationsForRecipients,
+} from "@/lib/notification";
 
 function isUniqueConstraintError(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -71,6 +76,8 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 title: true,
+                teacherId: true,
+                organizationId: true,
               },
             },
           },
@@ -166,6 +173,105 @@ export async function POST(request: NextRequest) {
       completedLessons,
       totalLessons
     );
+
+    const notificationTasks: Promise<unknown>[] = [];
+
+    if (
+      lesson.section.course.teacherId &&
+      lesson.section.course.teacherId !== userId
+    ) {
+      const teacher = await db.user.findUnique({
+        where: {
+          id: lesson.section.course.teacherId,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
+
+      if (teacher?.email) {
+        notificationTasks.push(
+          createNotification({
+            recipient: {
+              userId: teacher.id,
+              email: teacher.email,
+              name: teacher.name,
+            },
+            eventType: NotificationEventType.TEACHER_STUDENT_LESSON_COMPLETED,
+            title: "수강생이 레슨을 완료했습니다",
+            message: `${session.user.name ?? "수강생"}님이 "${lesson.title}" 레슨을 완료했습니다.`,
+            courseId: lesson.section.course.id,
+            lessonId: lesson.id,
+            metadata: {
+              studentId: userId,
+              lessonId: lesson.id,
+              courseId: lesson.section.course.id,
+              source: "progress",
+            },
+            idempotencyKey: buildNotificationIdempotencyKey(
+              "progress",
+              "teacher",
+              userId,
+              lesson.id
+            ),
+          })
+        );
+      }
+    }
+
+    if (lesson.section.course.organizationId) {
+      const guardians = await db.user.findMany({
+        where: {
+          organizationId: lesson.section.course.organizationId,
+          role: "GUARDIAN",
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      const guardianRecipients = guardians.map((guardian) => ({
+        userId: guardian.id,
+        email: guardian.email,
+        name: guardian.name,
+        role: guardian.role,
+      }));
+
+      if (guardianRecipients.length > 0) {
+        notificationTasks.push(
+          createNotificationsForRecipients({
+            recipients: guardianRecipients,
+            eventType: NotificationEventType.GUARDIAN_CHILD_LEARNING_COMPLETED,
+            title: "자녀 수강 완료 알림",
+            message: `${session.user.name ?? "학생"}님이 "${lesson.title}" 레슨을 완료했습니다.`,
+            courseId: lesson.section.course.id,
+            lessonId: lesson.id,
+            metadata: {
+              studentId: userId,
+              lessonId: lesson.id,
+              courseId: lesson.section.course.id,
+              source: "progress",
+            },
+            idempotencyKeyPrefix: buildNotificationIdempotencyKey(
+              "progress",
+              "guardian",
+              userId,
+              lesson.id
+            ),
+          })
+        );
+      }
+    }
+
+    if (notificationTasks.length > 0) {
+      await Promise.allSettled(notificationTasks);
+    }
 
     return NextResponse.json(
       {

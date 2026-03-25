@@ -23,7 +23,18 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
     },
+    user: {
+      findMany: vi.fn(),
+    },
   },
+}));
+
+vi.mock("@/lib/notification", () => ({
+  buildNotificationIdempotencyKey: vi.fn((...parts: Array<string | number>) =>
+    parts.join(":")
+  ),
+  createNotification: vi.fn().mockResolvedValue(null),
+  createNotificationsForRecipients: vi.fn().mockResolvedValue([]),
 }));
 
 type UserRole = "TEACHER" | "STUDENT" | "ADMIN" | "GUARDIAN";
@@ -245,6 +256,8 @@ beforeEach(() => {
 
     return filtered.sort((a, b) => b.enrolledAt.getTime() - a.enrolledAt.getTime()) as any;
   });
+
+  vi.mocked(db.user.findMany).mockResolvedValue([] as any);
 });
 
 describe("Issue #5 Integration + API Contract", () => {

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { NotificationEventType } from "@prisma/client";
 import { getSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types";
+import {
+  buildNotificationIdempotencyKey,
+  createNotification,
+} from "@/lib/notification";
 
 // GET /api/enrollments - List enrollments for the current user
 export async function GET(request: NextRequest) {
@@ -88,6 +93,18 @@ export async function POST(request: NextRequest) {
     // Check if course exists
     const course = await db.course.findFirst({
       where: { id: courseId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        teacherId: true,
+        teacher: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!course) {
@@ -134,6 +151,68 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    const notificationTasks: Promise<unknown>[] = [];
+
+    if (userRole === "STUDENT") {
+      notificationTasks.push(
+        createNotification({
+          recipient: {
+            userId,
+            email: session.user.email,
+            name: session.user.name,
+          },
+          eventType: NotificationEventType.STUDENT_ENROLLMENT_COMPLETED,
+          title: "수강신청이 완료되었습니다",
+          message: `${course.title} 강의 수강신청이 완료되었습니다.`,
+          courseId: course.id,
+          metadata: {
+            enrollmentId: enrollment.id,
+            courseId: course.id,
+          },
+          idempotencyKey: buildNotificationIdempotencyKey(
+            "enrollment",
+            "student",
+            enrollment.id
+          ),
+        })
+      );
+    }
+
+    if (
+      course.teacherId &&
+      course.teacherId !== userId &&
+      course.teacher?.email
+    ) {
+      notificationTasks.push(
+        createNotification({
+          recipient: {
+            userId: course.teacherId,
+            email: course.teacher.email,
+            name: course.teacher.name,
+          },
+          eventType: NotificationEventType.TEACHER_NEW_STUDENT_REGISTERED,
+          title: "새 수강생이 등록되었습니다",
+          message: `${session.user.name ?? "학생"}님이 ${course.title} 강의에 등록했습니다.`,
+          courseId: course.id,
+          metadata: {
+            enrollmentId: enrollment.id,
+            studentId: userId,
+            courseId: course.id,
+          },
+          idempotencyKey: buildNotificationIdempotencyKey(
+            "enrollment",
+            "teacher",
+            enrollment.id,
+            course.teacherId
+          ),
+        })
+      );
+    }
+
+    if (notificationTasks.length > 0) {
+      await Promise.allSettled(notificationTasks);
+    }
 
     return NextResponse.json(
       { data: enrollment, error: null },

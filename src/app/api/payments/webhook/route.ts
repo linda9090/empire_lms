@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { NotificationEventType } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getPaymentProvider, getStripeProvider } from "@/lib/payment";
+import { getStripeProvider } from "@/lib/payment";
 import { z } from "zod/v4";
 import Stripe from "stripe";
+import {
+  buildNotificationIdempotencyKey,
+  createNotification,
+} from "@/lib/notification";
 
 type StripeCheckoutSession = Stripe.Checkout.Session;
 type StripePaymentIntent = Stripe.PaymentIntent;
@@ -60,6 +65,40 @@ export async function POST(request: NextRequest) {
         }
 
         const { userId, courseId } = metadataResult.data;
+        const paymentIntentId = session.payment_intent as string;
+
+        const [user, course] = await Promise.all([
+          db.user.findUnique({
+            where: { id: userId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          }),
+          db.course.findUnique({
+            where: { id: courseId },
+            select: {
+              id: true,
+              title: true,
+              teacherId: true,
+              teacher: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          }),
+        ]);
+
+        if (!user || !course) {
+          return NextResponse.json(
+            { error: "Invalid webhook metadata references" },
+            { status: 400 }
+          );
+        }
 
         const existingEnrollment = await db.enrollment.findUnique({
           where: {
@@ -74,34 +113,137 @@ export async function POST(request: NextRequest) {
           console.log(`User ${userId} already enrolled in course ${courseId}`);
           await db.paymentTransaction.updateMany({
             where: {
-              providerPaymentId: session.id,
+              providerPaymentId: paymentIntentId,
               status: "pending",
             },
             data: {
               status: "succeeded",
             },
           });
+
+          await Promise.allSettled([
+            createNotification({
+              recipient: {
+                userId: user.id,
+                email: user.email,
+                name: user.name,
+              },
+              eventType: NotificationEventType.STUDENT_PAYMENT_COMPLETED,
+              title: "결제가 완료되었습니다",
+              message: `${course.title} 강의 결제가 완료되었습니다.`,
+              courseId: course.id,
+              metadata: {
+                paymentIntentId,
+                courseId: course.id,
+                source: "stripe-webhook",
+              },
+              idempotencyKey: buildNotificationIdempotencyKey(
+                "webhook",
+                "student-payment",
+                paymentIntentId
+              ),
+            }),
+          ]);
+
           return NextResponse.json({ received: true });
         }
 
-        await db.$transaction([
-          db.enrollment.create({
+        const createdEnrollment = await db.$transaction(async (tx) => {
+          const enrollment = await tx.enrollment.create({
             data: {
               userId,
               courseId,
               status: "ACTIVE",
             },
-          }),
-          db.paymentTransaction.updateMany({
+          });
+
+          await tx.paymentTransaction.updateMany({
             where: {
-              providerPaymentId: session.payment_intent as string,
+              providerPaymentId: paymentIntentId,
               status: "pending",
             },
             data: {
               status: "succeeded",
               updatedAt: new Date(),
             },
+          });
+
+          return enrollment;
+        });
+
+        await Promise.allSettled([
+          createNotification({
+            recipient: {
+              userId: user.id,
+              email: user.email,
+              name: user.name,
+            },
+            eventType: NotificationEventType.STUDENT_ENROLLMENT_COMPLETED,
+            title: "수강신청이 완료되었습니다",
+            message: `${course.title} 강의 수강신청이 완료되었습니다.`,
+            courseId: course.id,
+            metadata: {
+              enrollmentId: createdEnrollment.id,
+              courseId: course.id,
+              source: "stripe-webhook",
+            },
+            idempotencyKey: buildNotificationIdempotencyKey(
+              "webhook",
+              "student-enrollment",
+              createdEnrollment.id
+            ),
           }),
+          createNotification({
+            recipient: {
+              userId: user.id,
+              email: user.email,
+              name: user.name,
+            },
+            eventType: NotificationEventType.STUDENT_PAYMENT_COMPLETED,
+            title: "결제가 완료되었습니다",
+            message: `${course.title} 강의 결제가 완료되었습니다.`,
+            courseId: course.id,
+            metadata: {
+              paymentIntentId,
+              courseId: course.id,
+              enrollmentId: createdEnrollment.id,
+              source: "stripe-webhook",
+            },
+            idempotencyKey: buildNotificationIdempotencyKey(
+              "webhook",
+              "student-payment",
+              paymentIntentId
+            ),
+          }),
+          ...(course.teacherId &&
+          course.teacherId !== user.id &&
+          course.teacher?.email
+            ? [
+                createNotification({
+                  recipient: {
+                    userId: course.teacherId,
+                    email: course.teacher.email,
+                    name: course.teacher.name,
+                  },
+                  eventType: NotificationEventType.TEACHER_NEW_STUDENT_REGISTERED,
+                  title: "새 수강생이 등록되었습니다",
+                  message: `${user.name ?? "학생"}님이 ${course.title} 강의에 등록했습니다.`,
+                  courseId: course.id,
+                  metadata: {
+                    studentId: user.id,
+                    courseId: course.id,
+                    enrollmentId: createdEnrollment.id,
+                    source: "stripe-webhook",
+                  },
+                  idempotencyKey: buildNotificationIdempotencyKey(
+                    "webhook",
+                    "teacher-new-student",
+                    createdEnrollment.id,
+                    course.teacherId
+                  ),
+                }),
+              ]
+            : []),
         ]);
 
         console.log(`Enrolled user ${userId} in course ${courseId}`);
